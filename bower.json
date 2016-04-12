@@ -1,0 +1,26 @@
+{
+  "name": "routes",
+  "description": "router module for browser",
+  "main": "routes.js",
+  "moduleType": "node",
+  "authors": [
+    "attrs"
+  ],
+  "webDependencies": {
+    "web-util": "attrs/web-util"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/attrs/routes",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "web_modules",
+    "bower_components",
+    "gulpfile.js",
+    "test",
+    "tests",
+    "examples",
+    "lib",
+    "bin"
+  ]
+}

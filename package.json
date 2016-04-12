@@ -1,0 +1,27 @@
+{
+  "name": "browser-routes",
+  "version": "0.0.0",
+  "description": "router module for browser",
+  "main": "routes.js",
+  "web": "routes.js",
+  "webDependencies": {
+    "webmodules": "attrs/webmodules"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/attrs/routes"
+  },
+  "author": "joje <joje.attrs@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/attrs/routes/issues"
+  },
+  "homepage": "https://routes.github.io",
+  "files": [
+    "bin",
+    "lib",
+    "runtime",
+    "LICENSE",
+    "README.md"
+  ]
+}
