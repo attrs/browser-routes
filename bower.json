@@ -4,7 +4,7 @@
   "main": "routes.js",
   "moduleType": "node",
   "authors": [
-    "attrs"
+    "joje <joje.attrs@gmail.com>"
   ],
   "webDependencies": {
     "web-util": "attrs/web-util"

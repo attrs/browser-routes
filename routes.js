@@ -2,8 +2,24 @@
 // local 구동이거나 pushState() 미지원일 경우 hash (http://.../index.html#/uri ) 로 작동
 // pushState() 사용 가능인 경우 pushState() 기반으로 동작
 
-var normalize = require('web-util/url-normalize.js'),
-  config = require('web-util/meta-config.js'),
+var normalize = function(href, doc) {
+    var a = (doc || document).createElement('a');
+    a.href = href;
+    return {
+      href: href,
+      protocol: a.protocol,
+      hostname: a.hostname,
+      port: a.port,
+      pathname: a.pathname,
+      search: a.search,
+      hash: a.hash,
+      host: a.host
+    };
+  },
+  config = function config(name, alt) {
+    var root = document.head.querySelector('meta[name="' + name + '"][content]');
+    return root && root.getAttribute('content');
+  },
   document = window.document,
   location = window.location,
   history = window.history,

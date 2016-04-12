@@ -4,9 +4,6 @@
   "description": "router module for browser",
   "main": "routes.js",
   "web": "routes.js",
-  "webDependencies": {
-    "web-util": "attrs/web-util"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/attrs/routes"
@@ -16,7 +13,6 @@
   "bugs": {
     "url": "https://github.com/attrs/routes/issues"
   },
-  "homepage": "https://routes.github.io",
   "files": [
     "bin",
     "lib",
