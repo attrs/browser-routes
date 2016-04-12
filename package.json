@@ -5,7 +5,7 @@
   "main": "routes.js",
   "web": "routes.js",
   "webDependencies": {
-    "webmodules": "attrs/webmodules"
+    "web-util": "attrs/web-util"
   },
   "repository": {
     "type": "git",
