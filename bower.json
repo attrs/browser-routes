@@ -6,8 +6,8 @@
   "authors": [
     "joje <joje.attrs@gmail.com>"
   ],
-  "webDependencies": {
-    "web-util": "attrs/web-util"
+  "dependencies": {
+    "jquery": "*"
   },
   "license": "MIT",
   "homepage": "https://github.com/attrs/routes",
