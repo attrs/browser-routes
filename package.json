@@ -1,9 +1,9 @@
 {
   "name": "browser-routes",
   "version": "0.0.0",
-  "description": "router module for browser",
+  "description": "router for browser",
   "main": "routes.js",
-  "web": "routes.js",
+  "browser": "routes.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/attrs/routes"
@@ -14,10 +14,17 @@
     "url": "https://github.com/attrs/routes/issues"
   },
   "files": [
-    "bin",
-    "lib",
-    "runtime",
+    "package.json",
+    "routes.js",
+    "routes.min.js",
     "LICENSE",
     "README.md"
-  ]
+  ],
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-rename": "^1.2.2",
+    "gulp-rimraf": "^0.2.0",
+    "gulp-uglify": "^1.5.3",
+    "gulp-util": "^3.0.7"
+  }
 }

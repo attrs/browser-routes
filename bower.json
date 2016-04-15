@@ -1,14 +1,11 @@
 {
   "name": "routes",
-  "description": "router module for browser",
+  "description": "router for browser",
   "main": "routes.js",
-  "moduleType": "node",
+  "moduleType": ["node", "amd", "globals"],
   "authors": [
     "joje <joje.attrs@gmail.com>"
   ],
-  "dependencies": {
-    "jquery": "*"
-  },
   "license": "MIT",
   "homepage": "https://github.com/attrs/routes",
   "ignore": [
