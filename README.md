@@ -9,11 +9,6 @@
 
 ## Installation
 ```sh
-$ npm install -g webmodules
-$ wpm install browser-routes --save
-```
-or
-```sh
 $ npm install browser-routes --save
 ```
 or
@@ -21,9 +16,7 @@ or
 $ bower install routes --save
 ```
 
-## Usage
-
 
 ### License
 Licensed under the MIT License.
-See [LICENSE](./LICENSE.md) for the full license text.
+See [LICENSE](./LICENSE) for the full license text.
