@@ -2,17 +2,10 @@
   "name": "browser-routes",
   "version": "0.0.0",
   "description": "router for browser",
-  "main": "routes.js",
   "browser": "routes.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/attrs/browser-routes"
-  },
+  "repository": "attrs/browser-routes",
   "author": "joje <joje.attrs@gmail.com>",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/attrs/browser-routes/issues"
-  },
   "files": [
     "package.json",
     "routes.js",
