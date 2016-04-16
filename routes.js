@@ -233,10 +233,10 @@
   
   // class Routes
   function Routes(options) {
-    if( !(this instanceof Routes) ) throw new Error('illegal state: Routes must be instantiated');
+    if( !(this instanceof Routes) ) throw new Error('illegal state: \'new Routes()\' instead of \'Routes()\'');
     
     options = options || {};
-    var routes = Router(), current, hashroutes;
+    var routes = Router(), request, hashroutes;
     
     this.config = function(key, value) {
       var o = options;
@@ -265,7 +265,7 @@
       var url = normalize(this.href());
       //console.log('exec', url);
       hashroutes = [];
-      var request = current = {
+      request = {
         method: 'get',
         parsed: url,
         url: url.href,
