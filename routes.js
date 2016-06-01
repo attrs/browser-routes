@@ -7,24 +7,31 @@
     this.Routes = factory();
   }
 }(this, function() {
-  var normalize = function(href, doc) {
-      var a = (doc || document).createElement('a');
-      a.href = href;
-      return {
-        href: href,
-        protocol: a.protocol,
-        hostname: a.hostname,
-        port: a.port,
-        pathname: a.pathname,
-        search: a.search,
-        hash: a.hash,
-        host: a.host
-      };
-    },
-    config = function config(name, alt) {
-      var root = document.head.querySelector('meta[name="' + name + '"][content]');
-      return (root && root.getAttribute('content')) || alt;
+  function normalize(href, doc) {
+    var a = (doc || document).createElement('a');
+    a.href = href;
+    return {
+      href: href,
+      protocol: a.protocol,
+      hostname: a.hostname,
+      port: a.port,
+      pathname: a.pathname,
+      dirname: dirname(a.pathname) + '/',
+      search: a.search,
+      hash: a.hash,
+      host: a.host
     };
+  }
+  
+  function dirname(src) {
+    if( src[src.length - 1] === '/' ) return src.substring(0, src.length - 1);
+    else return src.substring(0, src.lastIndexOf('/')) || '/';
+  }
+  
+  function config(name, alt) {
+    var root = document.head.querySelector('meta[name="' + name + '"][content]');
+    return (root && root.getAttribute('content')) || alt;
+  }
   
   function match(requri, uri) {
     return requri === uri;
@@ -67,32 +74,26 @@
     };
   }
   
-  function chain(scope, req, routes, next) {
+  function chain(scope, req, res, routes, next) {
     var i = 0, forward;
     return forward = function(err) {
       var route = routes[i++];
-      if( !route ) return next(err);
+      if( err || !route ) return next(err);
+      
       var uri = route.uri;
       var type = route.type;
       var fn = route.fn;
-      var isErrorFunction = !uri && fn.length > 2;
-      //console.log('current', routes, i, req.url, route, isErrorFunction);
-      if( err && isErrorFunction ) {
-        req.error = err;
-        fn.apply(scope, [err, req, forward]);
-      } else if( !isErrorFunction ) {
-        if( type === 'use' && uri ) {
-          var obaseUrl = req.baseUrl, ourl = req.url;
-          req.baseUrl = uri.substring(0, uri.length);
-          req.url = req.url.substring(uri.length) || '';
-          fn.apply(scope, [req, forward]);
-          req.baseUrl = obaseUrl;
-          req.url = ourl;
-        } else {
-          fn.apply(scope, [req, forward]);
-        }
+      
+      //console.log('current', uri, type, fn);
+      if( type === 'use' && uri ) {
+        var obaseUrl = req.baseURL, ourl = req.url;
+        req.baseURL = uri.substring(0, uri.length);
+        req.url = req.url.substring(uri.length) || '';
+        fn.apply(scope, [req, res, forward]);
+        req.baseURL = obaseUrl;
+        req.url = ourl;
       } else {
-        forward(req.error);
+        fn.apply(scope, [req, res, forward]);
       }
     };
   }
@@ -109,6 +110,11 @@
     });
   }
   
+  function addEventListener(scope, type, fn, bubble) { 
+    if( scope.attachEvent ) scope.attachEvent(type,fn); 
+    else scope.addEventListener(type,fn,bubble);
+  }
+  
   
   // factory Router
   function Router() {
@@ -116,28 +122,20 @@
     var routes = [];
     var listeners = {};
     
-    var body = function(req, next) {
+    var body = function Router(req, res, next) {
       next = next || function() {};
       
       //console.log('body', req.baseUrl, req.url);
-      
-      var fns = [], dropfns = [];
+      var fns = [];
       routes.forEach(function(route) {
         //console.log('route', route);
-        if( route.checker && !route.checker() ) return dropfns.push(route);
-        else if( route.type === 'use' && (!route.uri || !req.url.indexOf(route.uri)) ) return fns.push(route);
+        if( !boot && route.boot ) return;
+        if( route.type === 'use' && (!route.uri || !req.url.indexOf(route.uri)) ) return fns.push(route);
         else if( route.type === 'get' && match(req.url, route.uri) ) return fns.push(route);
       });
       
-      // drop
-      dropfns.forEach(function(route) {
-        routes.splice(routes.indexOf(route), 1);
-      });
-      
-      //console.log('fns', fns, dropfns);
-      
       req.boot = boot;
-      chain(body, req, fns, next)(req.error);
+      chain(body, req, res, fns, next)(req.error);
       boot = false;
     };
     
@@ -145,9 +143,7 @@
       var exists = false;
       routes.forEach(function(route) {
         //console.log('exists', url, route.uri);
-      
-        if( route.checker && !route.checker() ) return;
-        else if( route.type === 'get' && match(url, route.uri) ) return exists = true;
+        if( route.type === 'get' && match(url, route.uri) ) return exists = true;
         else if( route.type === 'use' && route.uri && !url.indexOf(route.uri) ) { // middleware 는 포함하지 않음
           if( typeof route.fn.exists !== 'function' ) return exists = match(url, route.uri);
           exists = route.fn.exists(url.substring(route.uri.length));
@@ -156,8 +152,8 @@
       return exists;
     };
     
-    body.use = function(uri, fn, checker) {
-      if( typeof uri === 'function' ) checker = fn, fn = uri, uri = null;
+    body.use = function(uri, fn) {
+      if( typeof uri === 'function' ) fn = uri, uri = null;
       if( uri && typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
       if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
       //if( uri && !endsWith(uri, '/') ) uri = uri + '/';
@@ -165,27 +161,41 @@
       routes.push({
         type: 'use',
         uri: uri,
-        fn: fn,
-        checker: checker || defaultChecker()
+        fn: fn
       });
       return this;
     };
     
-    body.get = function(uri, fn, checker) {
+    body.get = function(uri, fn) {
       if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
       if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
       
       routes.push({
         type: 'get',
         uri: uri,
-        fn: fn,
-        checker: checker || defaultChecker()
+        fn: fn
+      });
+      return this;
+    };
+    
+    body.boot = function(fn) {
+      if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
+      routes.push({
+        type: 'use',
+        boot: true,
+        fn: fn
       });
       return this;
     };
     
     body.notfound = function(fn) {
-      //TODO
+      body.on('notfound', fn);
+      return this;
+    };
+    
+    body.error = function(fn) {
+      body.on('error', fn);
+      return this;
     };
     
     body.drop = function(fn) {
@@ -236,7 +246,9 @@
     if( !(this instanceof Routes) ) throw new Error('illegal state: \'new Routes()\' instead of \'Routes()\'');
     
     options = options || {};
-    var routes = Router(), request, hashroutes;
+    
+    var baseURL = normalize(options.baseURL || document.baseURI);
+    var router = Router(), request, response, hashroutes, currentURL;
     
     this.config = function(key, value) {
       var o = options;
@@ -250,27 +262,29 @@
       return Router();
     };
     
-    var lastUrl;
-    this.href = function(url) {
-      if( !arguments.length ) return lastUrl || location.href;
+    /*this.href = function(url) {
+      if( !arguments.length ) return currentURL || location.href;
+      
       url = normalize(url);
-      if( lastUrl === url.href ) return this;
-      current = url.href;
+      console.log('href', url.href, currentURL);
+      if( currentURL === url.href ) return this;
+      currentURL = url.href;
       this.exec();
       //TODO: hash 만 변경되었을때, url 이 변경되었을때를 체크하여 method 를 다르게 exec 해줘야한다.
       return this;
-    };
+    };*/
     
-    this.exec = function() {
-      var url = normalize(this.href());
-      //console.log('exec', url);
+    this.exec = function(url) {
+      console.log('exec', url, request);
+      
+      var urlstring = url || currentURL || location.href;
+      var url = normalize(urlstring);
       hashroutes = [];
       request = {
         method: 'get',
         parsed: url,
-        url: url.href,
+        baseURL: baseURL.dirname,
         originalUrl: url.pathname,
-        baseUrl: '/',
         url: url.pathname,
         hashname: url.hash,
         query: parseQuery(url.search),
@@ -280,7 +294,13 @@
         params: {}
       };
       
-      routes(request, function(err) {
+      response = {
+        redirect: this.href
+      };
+      
+      console.log('start', request);
+      
+      router(request, response, function(err) {
         if( err ) return console.error(err);
       });
       return this;
@@ -291,119 +311,117 @@
       return this;
     };
     
-    // wire to router
+    // --- wire to router
     this.use = function(uri, fn) {
-      routes.use.apply(routes, arguments);
+      router.use.apply(router, arguments);
+      return this;
+    };
+    
+    this.boot = function(fn) {
+      router.boot(fn);
       return this;
     };
     
     this.get = function(uri, fn) {
-      routes.get(uri, fn);
+      router.get(uri, fn);
       return this;
     };
     
     this.notfound = function(fn) {
-      routes.notfound(fn);
+      router.notfound(fn);
+      return this;
+    };
+    
+    this.error = function(fn) {
+      router.error(fn);
       return this;
     };
     
     this.drop = function(fn) {
-      routes.drop(fn);
+      router.drop(fn);
       return this;
     };
     
     this.exists = function(uri) {
-      return routes.exists(uri);
+      return router.exists(uri);
     };
     
     this.clear = function() {
-      routes.clear();
+      router.clear();
       return this;
     };
     
     this.on = function(type, fn) {
-      routes.on(type, fn);
+      router.on(type, fn);
       return this;
     };
     
     this.once = function(type, fn) {
-      routes.once(type, fn);
+      router.once(type, fn);
       return this;
     };
     
     this.off = function(type, fn) {
-      routes.off(type, fn);
+      router.off(type, fn);
       return this;
     };
   }
-
-  var baseUrl = document.baseURI;
-  console.log('baseUrl', baseUrl);
+  
+  var routes = new Routes();
+  routes.Routes = Routes;
+  routes.Router = Router;
   
   // instantiate main routes && trigger
-  var trigger = (function() {
-    if( !('onhashchange' in window) ) return console.error('[routes] unsupported browser');
+  (function() {
+    //var always = config('routes.always') === 'true' ? true : true;
+    var mode = config('routes.mode') || (history.pushState ? 'pushstate' : 'hash');
     
-    var always = config('routes.always') === 'true' ? true : false;
-    var mode = config('routes.mode') || 'pushstate';
-    var addEventListener = function(scope, type, fn, bubble) { 
-      if( scope.attachEvent ) scope.attachEvent(type,fn); 
-      else scope.addEventListener(type,fn,bubble);
-    };
-    var routes;
-    var observer;
-    
-    if( history.pushState ) {
+    if( mode === 'pushstate' ) {
+      if( !history.pushState ) return console.error('[routes] unsupported \'history.pushState\'');
+      
       var _pushState = history.pushState;
       history.pushState = function(state, title, url) {
         _pushState.apply(history, arguments);
-        routes && routes.href(location.href);
+        routes.exec(location.href);
       };
       
       window.onpopstate = function(event) {
-        routes && routes.href(location.href);
+        routes.href(location.href);
+      };
+      
+      routes.href = function(url) {
+        history.pushState(null, null, url);
+      };
+    } else if( mode === 'hash' ) {
+      if( !('onhashchange' in window) ) return console.error('[routes] unsupported \'onhashchange\'');
+      
+      addEventListener(window, 'hashchange', function() {
+        routes.exec(location.hash);
+      });
+      
+      routes.href = function(url) {
+        location.href = '#' + url;
       };
     }
     
-    if( 'onhashchange' in window ) {
-      addEventListener(window, 'hashchange', function() {
-        if( true || mode === 'hash' ) {
-          var hash = location.hash;
-          console.log('hash', hash);
-          routes && routes.href(location.hash);
-        } else routes && routes.href(location.hash);
-      });
-    }
-    
-    function routify(a) {
-      if( !a.__routes_managed__ ) {
-        a.__routes_managed__ = true;
-        addEventListener(a, 'click', function(e) {
-          if( a.hasAttribute('data-prevent') ) return e.preventDefault();
-        
-          var href = a.getAttribute('href');
-          if( !href || ~href.indexOf('://') || !href.toLowerCase().indexOf('javascript:') || a.getAttribute('target') ) return;
-          if( always || routes.exists(a.pathname) ) {
-            e.preventDefault();
-            //context.exec(e.target.href);
-            if( mode === 'hash' ) {
-              location.href = '#' + a.href;
-            } else {
-              if( location.href === a.href ) return;
-              history.pushState({}, null, a.href);
-            }
-          }
-        });
-      }
-      return this;
-    }
-    
-    function scan() {
-      [].forEach.call(document.querySelectorAll('[routes], [data-routes]'), routify);
-      return this;
-    }
-    
+    var observer;
     function bootup() {
+      function routify(a) {
+        if( !a.__routes_managed__ ) {
+          a.__routes_managed__ = true;
+          addEventListener(a, 'click', function(e) {
+            e.preventDefault();
+            routes.href(a.getAttribute('href'));
+          });
+        }
+        return this;
+      }
+    
+      function scan() {
+        [].forEach.call(document.querySelectorAll('[routes], [data-routes]'), routify);
+        return this;
+      }
+      
       // observe anchor tags
       if( observer ) observer.disconnect();
       observer = new MutationObserver(function(mutations) {
@@ -424,33 +442,12 @@
       });
       
       scan();
-      trigger.href(location.href);
+      routes.exec(location.href);
     }
     
     if( document.body ) bootup();
     else addEventListener(document, 'DOMContentLoaded', bootup);
-    
-    return {
-      context: function(context) {
-        if( !arguments.length ) return routes;
-        routes = context;
-        return this;
-      },
-      href: function(url) {
-        routes && routes.href(url);
-        return this;
-      },
-      scan: scan,
-      observer: function() {
-        return observer;
-      }
-    }
   })();
   
-  
-  var root = new Routes();
-  root.Routes = Routes;
-  root.trigger = trigger;
-  trigger.context(root);
-  return root;
+  return routes;
 }));

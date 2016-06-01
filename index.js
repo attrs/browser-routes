@@ -1,1 +1,1 @@
-module.exports = 'browser only';
+throw new Error('browser only');
