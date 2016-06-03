@@ -262,17 +262,10 @@
       return Router();
     };
     
-    /*this.href = function(url) {
-      if( !arguments.length ) return currentURL || location.href;
-      
-      url = normalize(url);
-      console.log('href', url.href, currentURL);
-      if( currentURL === url.href ) return this;
-      currentURL = url.href;
-      this.exec();
-      //TODO: hash 만 변경되었을때, url 이 변경되었을때를 체크하여 method 를 다르게 exec 해줘야한다.
+    this.href = function(url) {
+      this.exec(url);
       return this;
-    };*/
+    };
     
     this.exec = function(url) {
       console.log('exec', url, request);
