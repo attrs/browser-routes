@@ -7,16 +7,18 @@
     this.Routes = factory();
   }
 }(this, function() {
-  function normalize(href, doc) {
+  function normalize(url, doc) {
+    if( !url || typeof url !== 'string' ) throw new TypeError('illegal url');
     var a = (doc || document).createElement('a');
-    a.href = href;
+    a.href = url;
     return {
-      href: href,
+      href: a.href,
       protocol: a.protocol,
       hostname: a.hostname,
       port: a.port,
       pathname: a.pathname,
-      dirname: dirname(a.pathname) + '/',
+      fullpath: a.pathname + (a.search ? a.search : '') + (a.hash ? a.hash : ''),
+      //dirname: dirname(a.pathname) + '/',
       search: a.search,
       hash: a.hash,
       host: a.host
@@ -33,10 +35,6 @@
     return (root && root.getAttribute('content')) || alt;
   }
   
-  function match(requri, uri) {
-    return requri === uri;
-  }
-  
   function current(mode) {
     if( mode === 'hash' ) {
       return location.hash;
@@ -51,6 +49,8 @@
   }
   
   function parseQuery(query) {
+    query = query.trim();
+    if( query[0] === '?' ) query = query.substring(1);
     var match,
         pl     = /\+/g,
         search = /([^&=]+)=?([^&]*)/g,
@@ -74,6 +74,16 @@
     };
   }
   
+  function addEventListener(scope, type, fn, bubble) { 
+    if( scope.attachEvent ) scope.attachEvent(type,fn); 
+    else scope.addEventListener(type,fn,bubble);
+  }
+  
+  function match(requri, uri) {
+    //TODO: fix regexp matching
+    return requri === uri;
+  }
+  
   function chain(scope, req, res, routes, next) {
     var i = 0, forward;
     return forward = function(err) {
@@ -86,11 +96,13 @@
       
       //console.log('current', uri, type, fn);
       if( type === 'use' && uri ) {
-        var obaseUrl = req.baseURL, ourl = req.url;
-        req.baseURL = uri.substring(0, uri.length);
-        req.url = req.url.substring(uri.length) || '';
+        var opurl = req.purl;
+        var ourl = req.url;
+        req.purl = uri.substring(0, uri.length);
+        req.url = req.url.substring(uri.length) || '/';
+        //console.log('routing', {uri:uri,fn:fn,type:type,prul:req.purl,url:req.url, opurl:opurl, ourl:ourl});
         fn.apply(scope, [req, res, forward]);
-        req.baseURL = obaseUrl;
+        req.purl = opurl;
         req.url = ourl;
       } else {
         fn.apply(scope, [req, res, forward]);
@@ -98,26 +110,10 @@
     };
   }
   
-  function fire(scope, listeners, type, detail) {
-    if( type === 'error' && !(listeners[type] && isteners[type].length) )
-      return console.error('[routes] error', detail);
-  
-    (listeners[type] || []).forEach(function(listener) {
-      listener.call(scope, {
-        type: type,
-        detail: detail || {}
-      });
-    });
-  }
-  
-  function addEventListener(scope, type, fn, bubble) { 
-    if( scope.attachEvent ) scope.attachEvent(type,fn); 
-    else scope.addEventListener(type,fn,bubble);
-  }
-  
   
   // factory Router
-  function Router() {
+  function Router(name) {
+    name = name || 'unknwon';
     var boot = true;
     var routes = [];
     var listeners = {};
@@ -130,9 +126,17 @@
       routes.forEach(function(route) {
         //console.log('route', route);
         if( !boot && route.boot ) return;
-        if( route.type === 'use' && (!route.uri || !req.url.indexOf(route.uri)) ) return fns.push(route);
-        else if( route.type === 'get' && match(req.url, route.uri) ) return fns.push(route);
+        if( route.type === 'use' ) {
+          if( !route.uri || !req.url.indexOf(route.uri) || match(req.url, route.uri) ) return fns.push(route);
+        } else if( route.type === 'get' ) {
+          //console.log(name, req.url || '(no)', route.uri || '(no)');
+          if( match(req.url, route.uri) ) return fns.push(route);
+        }
       });
+      
+      /*console.info('[' + name + '] fns', req.url, fns.map(function(o) {
+        return (o.uri || 'any') + '(' + (o.fn.name || 'unnamed') + ')';
+      }));*/
       
       req.boot = boot;
       chain(body, req, res, fns, next)(req.error);
@@ -237,6 +241,18 @@
       
       return this;
     };
+  
+    body.fire = function(type, detail) {
+      if( type === 'error' && !(listeners[type] && isteners[type].length) )
+        return console.error('[routes] error', detail);
+      
+      (listeners[type] || []).forEach(function(listener) {
+        listener.call(this, {
+          type: type,
+          detail: detail || {}
+        });
+      });
+    };
     
     return body;
   }
@@ -247,8 +263,11 @@
     
     options = options || {};
     
-    var baseURL = normalize(options.baseURL || document.baseURI);
-    var router = Router(), request, response, hashroutes, currentURL;
+    var self = this;
+    var baseURL = dirname(normalize(options.baseURL || document.baseURI).pathname);
+    var router = Router('root'), request, response, hashroutes;
+    
+    //console.info('baseURL', baseURL);
     
     this.config = function(key, value) {
       var o = options;
@@ -258,44 +277,55 @@
       return this;
     };
     
-    this.router = function() {
-      return Router();
+    this.router = function(name) {
+      return Router(name);
     };
     
-    this.href = function(url) {
-      this.exec(url);
+    this.redirect = function(url) {
+      if( !url ) throw new TypeError('missing url');
+      if( url[0] !== '/' ) url = '/' + url;
+      url = normalize(baseURL + url);
+      router.fire('redirect', {request:request, url:url.fullpath});
+      self.exec(url.fullpath);
       return this;
     };
     
-    this.exec = function(url) {
-      console.log('exec', url, request);
+    this.exec = function(requrl) {
+      var parsed = normalize(requrl);
+      var hash = parsed.hash;
+      var query = parsed.search;
+      var url = parsed.pathname;
+      var fullpath = parsed.fullpath;
+      if( request && request.requestURL && fullpath === request.requestURL ) return;
+      //console.log('exec', fullpath, request && request.requestURL);
       
-      var urlstring = url || currentURL || location.href;
-      var url = normalize(urlstring);
+      if( !url.indexOf(baseURL) ) {
+        url = url.substring(baseURL.length);
+      } else {
+        return console.error('given url is not sub url of base url \'' + baseURL.dirname + '\'');
+      }
+      
       hashroutes = [];
       request = {
         method: 'get',
-        parsed: url,
-        baseURL: baseURL.dirname,
-        originalUrl: url.pathname,
-        url: url.pathname,
-        hashname: url.hash,
-        query: parseQuery(url.search),
-        hash: function(hash, fn) {
-          hashroutes.push({hash:hash, fn:fn});
-        },
+        parsed: parsed,
+        baseURL: baseURL,
+        requestURL: fullpath,
+        url: url,
+        hashname: hash,
+        query: parseQuery(query),
         params: {}
       };
       
       response = {
-        redirect: this.href
+        redirect: this.redirect,
+        hash: function(hash, fn) {
+          hashroutes.push({hash:hash, fn:fn});
+        }
       };
       
-      console.log('start', request);
-      
-      router(request, response, function(err) {
-        if( err ) return console.error(err);
-      });
+      //console.log('start', request);
+      router(request, response);
       return this;
     };
     
@@ -382,6 +412,10 @@
         routes.href(location.href);
       };
       
+      routes.on('redirect', function(e) {
+        _pushState.call(history, null, null, e.detail.url);
+      });
+      
       routes.href = function(url) {
         history.pushState(null, null, url);
       };
@@ -390,6 +424,10 @@
       
       addEventListener(window, 'hashchange', function() {
         routes.exec(location.hash);
+      });
+      
+      routes.on('redirect', function(e) {
+        location.href = '#' + e.detail.url;
       });
       
       routes.href = function(url) {
