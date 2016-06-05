@@ -264,7 +264,7 @@
     options = options || {};
     
     var self = this;
-    var baseURL = dirname(normalize(options.baseURL || document.baseURI).pathname);
+    var baseURL = '';
     var router = Router('root'), request, response, hashroutes;
     
     //console.info('baseURL', baseURL);
@@ -274,6 +274,17 @@
       if( arguments.length === 1 ) return o(key);
       if( value === null ) delete o[key];
       else o[key] = value;
+      return this;
+    };
+    
+    this.base = function(url) {
+      if( !arguments.length ) return baseURL;
+      if( !url ) {
+        baseURL = '';
+        return this;
+      }
+      if( url[url.length - 1] !== '/' ) url = url + '/';
+      baseURL = dirname(normalize(url).pathname);
       return this;
     };
     
@@ -291,13 +302,13 @@
     };
     
     this.exec = function(requrl) {
+      //console.log('exec', baseURL, requrl);
       var parsed = normalize(requrl);
       var hash = parsed.hash;
       var query = parsed.search;
       var url = parsed.pathname;
       var fullpath = parsed.fullpath;
       if( request && request.requestURL && fullpath === request.requestURL ) return;
-      //console.log('exec', fullpath, request && request.requestURL);
       
       if( !url.indexOf(baseURL) ) {
         url = url.substring(baseURL.length);
