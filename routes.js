@@ -340,15 +340,23 @@ function Routes(options) {
     };
     
     response = {
-      redirect: function(url) {
+      redirect: function(tourl) {
         //console.info('redirect', url, request.purl, request.url, request);
-        if( url.startsWith('#') ) {
-          location.href = url;
-        } else if( url.startsWith('/') ) {
-          exec(path.join(baseURL, url));
+        if( tourl.startsWith('#') ) {
+          location.href = tourl;
+        } else if( tourl.startsWith('/') ) {
+          exec(path.join(baseURL, tourl));
         } else {
-          exec(path.join(baseURL, request.purl, request.url, url));
+          exec(path.join(baseURL, request.purl, request.url, tourl));
         }
+        
+        router.fire('redirect', {
+          requestURL: fullpath,
+          url: url,
+          request: request,
+          response: response
+        });
+        
         return this;
       },
       hash: function(hash, fn) {
