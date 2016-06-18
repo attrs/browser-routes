@@ -1,6 +1,6 @@
 {
   "name": "browser-routes",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "router for browser",
   "browser": "routes.js",
   "repository": "attrs/browser-routes",
