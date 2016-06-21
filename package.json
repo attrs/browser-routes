@@ -8,6 +8,9 @@
   "repository": "attrs/browser-routes",
   "author": "joje <joje.attrs@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "postversion": "gulp"
+  },
   "files": [
     "package.json",
     "routes.js",
