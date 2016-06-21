@@ -98,12 +98,14 @@ function chain(scope, req, res, routes, next) {
     
     //console.log('current', uri, type, fn);
     if( type === 'use' && uri ) {
+      if( uri && uri.trim() === '/' ) uri = '';
+      
       var opurl = req.purl || '';
       var ourl = req.url;
       req.purl = path.join(opurl, ourl.substring(0, uri.length));
       req.url = ourl.substring(uri.length) || '/';
       
-      //console.log('routing', uri, req.purl, req.url);
+      //console.log('routing', uri, ourl, req.purl, req.url);
       
       fn.apply(scope, [req, res, forward]);
       req.purl = opurl;
@@ -134,10 +136,10 @@ function Router(name) {
     //console.log('body', req.baseUrl, req.url);
     var fns = [];
     routes.forEach(function(route) {
-      //console.log('route', route);
+      //console.log('[' + name + '] route', route);
       if( !boot && route.boot ) return;
       if( route.type === 'use' ) {
-        if( !route.uri || !req.url.indexOf(route.uri) || match(req.url, route.uri) ) return fns.push(route);
+        if( route.uri === '/' || !req.url.indexOf(route.uri) || match(req.url, route.uri) ) return fns.push(route);
       } else if( route.type === 'get' ) {
         //console.log(name, req.url || '(no)', route.uri || '(no)');
         if( match(req.url, route.uri) ) return fns.push(route);
@@ -172,6 +174,8 @@ function Router(name) {
     if( typeof fn === 'string' ) fn = redirector(fn);
     if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
     //if( uri && !endsWith(uri, '/') ) uri = uri + '/';
+    uri = uri ? uri.trim() : '/';
+    if( uri[0] !== '/' ) uri = '/' + uri;
     
     routes.push({
       type: 'use',
@@ -185,6 +189,8 @@ function Router(name) {
     if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
     if( typeof fn === 'string' ) fn = redirector(fn);
     if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
+    uri = uri ? uri.trim() : '/';
+    if( uri[0] !== '/' ) uri = '/' + uri;
     
     routes.push({
       type: 'get',
