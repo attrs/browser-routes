@@ -35,7 +35,7 @@ gulp.task('build', ['build.webpack'], () => {
       '*',
       '* Copyright attrs and others',
       '* Released under the MIT license',
-      '* https://github.com/attrs/browser-routes/blob/master/LICENSE',
+      '* https://github.com/<%=pkg.repository%>/blob/master/LICENSE',
       '*',
       '* Date: ' + new Date(),
       '*/',
