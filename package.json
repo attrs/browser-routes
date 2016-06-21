@@ -11,7 +11,7 @@
   "files": [
     "package.json",
     "routes.js",
-    "routes.min.js",
+    "dist",
     "LICENSE",
     "README.md"
   ],
