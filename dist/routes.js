@@ -6,7 +6,7 @@
 * Released under the MIT license
 * https://github.com/attrs/browser-routes/blob/master/LICENSE
 *
-* Date: Wed Jun 22 2016 01:07:30 GMT+0900 (KST)
+* Date: Wed Jun 22 2016 01:09:17 GMT+0900 (KST)
 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
