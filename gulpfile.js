@@ -6,8 +6,10 @@ const gutil = require('gulp-util');
 const rename = require("gulp-rename");
 const uglify = require('gulp-uglify');
 const rimraf = require('gulp-rimraf');
+const header = require('gulp-header');
 const webpack = require('webpack-stream');
 
+const pkg = require('./package.json');
 const dist = path.join(__dirname, 'dist');
 
 gulp.task('build.js.clean', () => {
@@ -26,7 +28,22 @@ gulp.task('build.webpack', ['build.js.clean'], () => {
 
 gulp.task('build', ['build.webpack'], () => {
   return gulp.src(path.join(dist, 'routes.js'))
+    .pipe(header([
+      '/*!',
+      '* <%= pkg.name %> v<%= pkg.version %>',
+      '* <%= pkg.homepage %>',
+      '*',
+      '* Copyright attrs and others',
+      '* Released under the MIT license',
+      '* https://github.com/attrs/browser-routes/blob/master/LICENSE',
+      '*',
+      '* Date: ' + new Date(),
+      '*/',
+      ''
+    ].join('\n'), { pkg: pkg }))
+    .pipe(gulp.dest(dist))
     .pipe(uglify())
+    .pipe(header('/*! <%= pkg.name %> v<%= pkg.version %> attrs */', { pkg: pkg }))
     .pipe(rename({
       suffix: '.min'
     }))
