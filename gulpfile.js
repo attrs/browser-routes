@@ -6,7 +6,6 @@ const gutil = require('gulp-util');
 const rename = require("gulp-rename");
 const uglify = require('gulp-uglify');
 const rimraf = require('gulp-rimraf');
-const umd = require('gulp-umd');
 const webpack = require('webpack-stream');
 
 const dist = path.join(__dirname, 'dist');
