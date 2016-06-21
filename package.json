@@ -3,7 +3,7 @@
   "version": "0.0.3",
   "description": "router for browser",
   "main": "index.js",
-  "browser": "dist/routes.js",
+  "browser": "routes.js",
   "repository": "attrs/browser-routes",
   "author": "joje <joje.attrs@gmail.com>",
   "license": "MIT",
