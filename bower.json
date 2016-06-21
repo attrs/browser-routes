@@ -1,7 +1,7 @@
 {
   "name": "routes",
   "description": "router for browser",
-  "main": "routes.min.js",
+  "main": "dist/routes.min.js",
   "moduleType": ["node", "amd", "globals"],
   "authors": [
     "joje <joje.attrs@gmail.com>"

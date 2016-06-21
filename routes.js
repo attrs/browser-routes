@@ -1,14 +1,3 @@
-/*(function (root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    define(factory);
-  } else if (typeof exports === 'object' && typeof exports.nodeName !== 'string') {
-    module.exports = factory();
-  } else {
-    this.Routes = factory();
-  }
-}(this, function() {
-*/
-
 var path = require('path');
 
 function normalize(url, doc) {
