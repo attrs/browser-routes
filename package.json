@@ -27,5 +27,8 @@
     "gulp-util": "^3.0.7",
     "webpack": "^1.13.1",
     "webpack-stream": "^3.2.0"
+  },
+  "browserDependencies": {
+    "route-pattern": "^0.0.6"
   }
 }

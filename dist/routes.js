@@ -6,7 +6,7 @@
 * Released under the MIT license
 * https://github.com/attrs/browser-routes/blob/master/LICENSE
 *
-* Date: Wed Jun 22 2016 01:09:17 GMT+0900 (KST)
+* Date: Sun Jul 03 2016 04:33:12 GMT+0900 (KST)
 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -65,6 +65,20 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports, __webpack_require__) {
 
 	var path = __webpack_require__(1);
+	var RoutePattern = __webpack_require__(3);
+	
+	/*
+	(function() {
+	  var defined = '/hello/:planet?foo=:foo&fruit=:fruit#:section';
+	  var url = '/hello/earth?foo=bar&fruit=apple#chapter2';
+	  var pattern = RoutePattern.fromString(defined);
+	  var matches = pattern.matches(url);
+	  var params = pattern.match(url);
+	  
+	  console.log('match', matches);
+	  console.log(JSON.stringify(params, null, '  '));
+	});
+	*/
 	
 	function normalize(url, doc) {
 	  if( !url || typeof url !== 'string' ) throw new TypeError('illegal url');
@@ -132,10 +146,31 @@ return /******/ (function(modules) { // webpackBootstrap
 	  else scope.addEventListener(type,fn,bubble);
 	}
 	
-	function match(requri, uri) {
-	  //TODO: fix regexp matching
-	  return requri === uri;
+	function patternize(source, ignoresubdir) {
+	  var pettern = RoutePattern.fromString(source);
+	  var ap = RoutePattern.fromString(source + '/*after');
+	  
+	  return {
+	    match: function(url) {
+	      if( source === '/' ) return ignoresubdir ? true : (source === url);
+	      
+	      if( pettern.matches(url) ) {
+	        return pettern.match(url).namedParams;
+	      } else if( ignoresubdir && ap.matches(url) ) {
+	        var params = ap.match(url).namedParams;
+	        delete params.after;
+	        return params;
+	      }
+	      return false;
+	    },
+	    matches: function(url) {
+	      return pattern.matches(url) ? true : (ignoresubdir && ap.matches(url) ? true : false);
+	    }
+	  };
 	}
+	
+	//var p = patternize('/', true);
+	//console.log('/a/b/c', p.match('/a/b/c'));
 	
 	function capture(o) {
 	  return JSON.parse(JSON.stringify(o));
@@ -150,24 +185,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var uri = route.uri;
 	    var type = route.type;
 	    var fn = route.fn;
+	    var params = route.params;
 	    
-	    //console.log('current', uri, type, fn);
-	    if( type === 'use' && uri ) {
-	      if( uri && uri.trim() === '/' ) uri = '';
-	      
-	      var opurl = req.purl || '';
-	      var ourl = req.url;
-	      req.purl = path.join(opurl, ourl.substring(0, uri.length));
-	      req.url = ourl.substring(uri.length) || '/';
-	      
-	      //console.log('routing', uri, ourl, req.purl, req.url);
-	      
-	      fn.apply(scope, [req, res, forward]);
-	      req.purl = opurl;
-	      req.url = ourl;
-	    } else {
-	      fn.apply(scope, [req, res, forward]);
-	    }
+	    if( uri && uri.trim() === '/' ) uri = '';
+	    
+	    var oParentUrl = req.parentUrl || '/';
+	    var oUrl = req.url;
+	    req.parentUrl = path.join(oParentUrl, oUrl.substring(0, uri.length));
+	    req.url = oUrl.substring(uri.length) || '/';
+	    req.params = params;
+	    
+	    /*console.log('routing', capture({
+	      //type: type,
+	      uri: uri,
+	      url: req.url,
+	      parentUrl: req.parentUrl,
+	      oParentUrl: oParentUrl,
+	      oUrl: oUrl
+	    }));*/
+	    
+	    fn.apply(scope, [req, res, forward]);
+	    req.parentUrl = oParentUrl;
+	    req.url = oUrl;
+	    req.params = {};
 	  };
 	}
 	
@@ -186,18 +226,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var listeners = {};
 	  
 	  var body = function Router(req, res, next) {
+	    if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
 	    next = next || function() {};
 	    
 	    //console.log('body', req.baseUrl, req.url);
-	    var fns = [];
+	    var fns = [], found = false;
 	    routes.forEach(function(route) {
 	      //console.log('[' + name + '] route', route);
-	      if( !boot && route.boot ) return;
-	      if( route.type === 'use' ) {
-	        if( route.uri === '/' || !req.url.indexOf(route.uri) || match(req.url, route.uri) ) return fns.push(route);
-	      } else if( route.type === 'get' ) {
-	        //console.log(name, req.url || '(no)', route.uri || '(no)');
-	        if( match(req.url, route.uri) ) return fns.push(route);
+	      if( route.type === 'boot' ) {
+	        if( boot ) fns.push(route);
+	        return;
+	      }
+	      
+	      if( found ) return;
+	      
+	      //console.log(route.uri, req.url, route.pattern.match(req.url));
+	      var params;
+	      if( (params = route.pattern.match(req.url)) ) {
+	        if( route.type === 'get' ) found = true;
+	        
+	        return fns.push({
+	          type: route.type,
+	          fn: route.fn,
+	          uri: route.uri,
+	          pattern: route.pattern,
+	          params: params
+	        });
 	      }
 	    });
 	    
@@ -224,23 +278,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  body.use = function(uri, fn) {
-	    if( typeof uri === 'function' ) fn = uri, uri = null;
-	    if( uri && typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
+	    if( typeof uri === 'function' ) fn = uri, uri = '/';
+	    if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
 	    if( typeof fn === 'string' ) fn = redirector(fn);
 	    if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
-	    //if( uri && !endsWith(uri, '/') ) uri = uri + '/';
 	    uri = uri ? uri.trim() : '/';
 	    if( uri[0] !== '/' ) uri = '/' + uri;
 	    
 	    routes.push({
 	      type: 'use',
 	      uri: uri,
+	      pattern: patternize(uri, true),
 	      fn: fn
 	    });
 	    return this;
 	  };
 	  
 	  body.get = function(uri, fn) {
+	    if( typeof uri === 'function' ) fn = uri, uri = '/';
 	    if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
 	    if( typeof fn === 'string' ) fn = redirector(fn);
 	    if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
@@ -250,6 +305,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    routes.push({
 	      type: 'get',
 	      uri: uri,
+	      pattern: patternize(uri),
 	      fn: fn
 	    });
 	    return this;
@@ -258,8 +314,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  body.boot = function(fn) {
 	    if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
 	    routes.push({
-	      type: 'use',
-	      boot: true,
+	      type: 'boot',
 	      fn: fn
 	    });
 	    return this;
@@ -946,6 +1001,573 @@ return /******/ (function(modules) { // webpackBootstrap
 	    throw new Error('process.chdir is not supported');
 	};
 	process.umask = function() { return 0; };
+
+
+/***/ },
+/* 3 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var querystring = __webpack_require__(4);
+	
+	// # Utility functions
+	//
+	// ## Shallow merge two or more objects, e.g.
+	// merge({a: 1, b: 2}, {a: 2}, {a: 3}) => {a: 3, b: 2}
+	function merge() {
+	  return [].slice.call(arguments).reduce(function (merged, source) {
+	    for (var prop in source) {
+	      merged[prop] = source[prop];
+	    }
+	    return merged;
+	  }, {});
+	}
+	
+	// Split a location string into different parts, e.g.:
+	// splitLocation("/foo/bar?fruit=apple#some-hash") => {
+	//  path: "/foo/bar", queryString: "fruit=apple", hash: "some-hash" 
+	// }
+	function splitLocation(location) {
+	  var re = /([^\?#]*)?(\?[^#]*)?(#.*)?$/;
+	  var match = re.exec(location);
+	  return {
+	    path: match[1] || '',
+	    queryString: match[2] && match[2].substring(1) || '',
+	    hash: match[3] && match[3].substring(1) || ''
+	  }
+	}
+	
+	// # QueryStringPattern
+	// The QueryStringPattern holds a compiled version of the query string part of a route string, i.e.
+	// ?foo=:foo&fruit=:fruit
+	var QueryStringPattern = (function () {
+	
+	  // The RoutePattern constructor
+	  // Takes a route string or regexp as parameter and provides a set of utility functions for matching against a 
+	  // location path
+	  function QueryStringPattern(options) {
+	
+	    // The query parameters specified
+	    this.params = options.params;
+	
+	    // if allowWildcards is set to true, unmatched query parameters will be ignored
+	    this.allowWildcards = options.allowWildcards;
+	
+	    // The original route string (optional)
+	    this.routeString = options.routeString;
+	  }
+	
+	  QueryStringPattern.prototype.matches = function (queryString) {
+	    var givenParams = (queryString || '').split("&").reduce(function (params, pair) {
+	      var parts = pair.split("="),
+	        name = parts[0],
+	        value = parts[1];
+	      if (name) params[name] = value;
+	      return params;
+	    }, {});
+	
+	    var requiredParam, requiredParams = [].concat(this.params);
+	    while (requiredParam = requiredParams.shift()) {
+	      if (!givenParams.hasOwnProperty(requiredParam.key)) return false;
+	      if (requiredParam.value && givenParams[requiredParam.key] != requiredParam.value) return false;
+	    }
+	    if (!this.allowWildcards && this.params.length) {
+	      if (Object.getOwnPropertyNames(givenParams).length > this.params.length) return false;
+	    }
+	    return true;
+	  };
+	
+	  QueryStringPattern.prototype.match = function (queryString) {
+	
+	    if (!this.matches(queryString)) return null;
+	
+	    var data = {
+	      params: [],
+	      namedParams: {},
+	      namedQueryParams: {}
+	    };
+	
+	    if (!queryString) {
+	      return data;
+	    }
+	
+	    // Create a mapping from each key in params to their named param
+	    var namedParams = this.params.reduce(function (names, param) {
+	      names[param.key] = param.name;
+	      return names;
+	    }, {});
+	
+	    var parsedQueryString = querystring.parse(queryString);
+	    Object.keys(parsedQueryString).forEach(function(key) {
+	      var value = parsedQueryString[key];
+	      data.params.push(value);
+	      if (namedParams[key]) {
+	        data.namedQueryParams[namedParams[key]] = data.namedParams[namedParams[key]] = value;
+	      }
+	    });
+	    return data;
+	  };
+	
+	  QueryStringPattern.fromString = function (routeString) {
+	
+	    var options = {
+	      routeString: routeString,
+	      allowWildcards: false,
+	      params: []
+	    };
+	
+	    // Extract named parameters from the route string
+	    // Construct an array with some metadata about each of the named parameters
+	    routeString.split("&").forEach(function (pair) {
+	      if (!pair) return;
+	
+	      var parts = pair.split("="),
+	        name = parts[0],
+	        value = parts[1] || '';
+	
+	      var wildcard = false;
+	
+	      var param = { key: name };
+	
+	      // Named parameters starts with ":"
+	      if (value.charAt(0) == ':') {
+	        // Thus the name of the parameter is whatever comes after ":"
+	        param.name = value.substring(1);
+	      }
+	      else if (name == '*' && value == '') {
+	        // If current param is a wildcard parameter, the options are flagged as accepting wildcards
+	        // and the current parameter is not added to the options' list of params
+	        wildcard = options.allowWildcards = true;
+	      }
+	      else {
+	        // The value is an exact match, i.e. the route string 
+	        // page=search&q=:query will match only when the page parameter is "search"
+	        param.value = value;
+	      }
+	      if (!wildcard) {
+	        options.params.push(param);
+	      }
+	    });
+	    return new QueryStringPattern(options);
+	  };
+	
+	  return QueryStringPattern;
+	})();
+	
+	// # PathPattern
+	// The PathPattern holds a compiled version of the path part of a route string, i.e.
+	// /some/:dir
+	var PathPattern = (function () {
+	
+	  // These are the regexps used to construct a regular expression from a route pattern string
+	  // Based on route patterns in Backbone.js
+	  var
+	    pathParam = /:\w+/g,
+	    splatParam = /\*\w+/g,
+	    namedParams = /(:[^\/\.]+)|(\*\w+)/g,
+	    subPath = /\*/g,
+	    escapeRegExp = /[-[\]{}()+?.,\\^$|#\s]/g;
+	
+	  // The PathPattern constructor
+	  // Takes a route string or regexp as parameter and provides a set of utility functions for matching against a 
+	  // location path
+	  function PathPattern(options) {
+	    // The route string are compiled to a regexp (if it isn't already)
+	    this.regexp = options.regexp;
+	
+	    // The query parameters specified in the path part of the route
+	    this.params = options.params;
+	
+	    // The original routestring (optional)
+	    this.routeString = options.routeString;
+	  }
+	
+	  PathPattern.prototype.matches = function (pathname) {
+	    return this.regexp.test(pathname);
+	  };
+	
+	  // Extracts all matched parameters
+	  PathPattern.prototype.match = function (pathname) {
+	
+	    if (!this.matches(pathname)) return null;
+	    
+	    // The captured data from pathname
+	    var data = {
+	      params: [],
+	      namedParams: {}
+	    };
+	
+	    // Using a regexp to capture named parameters on the pathname (the order of the parameters is significant)
+	    (this.regexp.exec(pathname) || []).slice(1).forEach(function (value, idx) {
+	      if(value !== undefined) {
+	        value = decodeURIComponent(value);
+	      }
+	
+	      data.namedParams[this.params[idx]] = value;
+	      data.params.push(value);
+	    }, this);
+	
+	    return data;
+	  };
+	
+	  PathPattern.routePathToRegexp = function (path) {
+	    path = path
+	      .replace(escapeRegExp, "\\$&")
+	      .replace(pathParam, "([^/]+)")
+	      .replace(splatParam, "(.*)?")
+	      .replace(subPath, ".*?")
+	      .replace(/\/?$/, "/?");
+	    return new RegExp("^/?" + path + "$");
+	  };
+	
+	  // This compiles a route string into a set of options which a new PathPattern is created with 
+	  PathPattern.fromString = function (routeString) {
+	
+	    // Whatever comes after ? and # is ignored
+	    routeString = routeString.split(/\?|#/)[0];
+	
+	    // Create the options object
+	    // Keep the original routeString and a create a regexp for the pathname part of the url
+	    var options = {
+	      routeString: routeString,
+	      regexp: PathPattern.routePathToRegexp(routeString),
+	      params: (routeString.match(namedParams) || []).map(function (param) {
+	        return param.substring(1);
+	      })
+	    };
+	
+	    // Options object are created, now instantiate the PathPattern
+	    return new PathPattern(options);
+	  };
+	
+	  return PathPattern;
+	}());
+	
+	// # RegExpPattern
+	// The RegExpPattern is just a simple wrapper around a regex, used to provide a similar api as the other route patterns
+	var RegExpPattern = (function () {
+	  // The RegExpPattern constructor
+	  // Wraps a regexp and provides a *Pattern api for it
+	  function RegExpPattern(regex) {
+	    this.regex = regex;
+	  }
+	
+	  RegExpPattern.prototype.matches = function (loc) {
+	    return this.regex.test(loc);
+	  };
+	
+	  // Extracts all matched parameters
+	  RegExpPattern.prototype.match = function (location) {
+	
+	    if (!this.matches(location)) return null;
+	
+	    var loc = splitLocation(location);
+	
+	    return {
+	      params: this.regex.exec(location).slice(1),
+	      queryParams: querystring.parse(loc.queryString),
+	      namedParams: {}
+	    };
+	  };
+	
+	  return RegExpPattern;
+	}());
+	
+	// # RoutePattern
+	// The RoutePattern combines the PathPattern and the QueryStringPattern so it can represent a full location
+	// (excluding the scheme + domain part)
+	// It also allows for having path-like routes in the hash part of the location
+	// Allows for route strings like:
+	// /some/:page?param=:param&foo=:foo#:bookmark
+	// /some/:page?param=:param&foo=:foo#/:section/:bookmark
+	// 
+	// Todo: maybe allow for parameterization of the kind of route pattern to use for the hash?
+	// Maybe use the QueryStringPattern for cases like
+	// /some/:page?param=:param&foo=:foo#?onlyCareAbout=:thisPartOfTheHash&*
+	// Need to test how browsers handles urls like that
+	var RoutePattern = (function () {
+	
+	  // The RoutePattern constructor
+	  // Takes a route string or regexp as parameter and provides a set of utility functions for matching against a 
+	  // location path
+	  function RoutePattern(options) {
+	    // The route string are compiled to a regexp (if it isn't already)
+	    this.pathPattern = options.pathPattern;
+	    this.queryStringPattern = options.queryStringPattern;
+	    this.hashPattern = options.hashPattern;
+	
+	    // The original routestring (optional)
+	    this.routeString = options.routeString;
+	  }
+	
+	  RoutePattern.prototype.matches = function (location) {
+	    // Whatever comes after ? and # is ignored
+	    var loc = splitLocation(location);
+	
+	    return (!this.pathPattern || this.pathPattern.matches(loc.path)) &&
+	      (!this.queryStringPattern || this.queryStringPattern.matches(loc.queryString) ) &&
+	      (!this.hashPattern || this.hashPattern.matches(loc.hash))
+	  };
+	
+	  // Extracts all matched parameters
+	  RoutePattern.prototype.match = function (location) {
+	
+	    if (!this.matches(location)) return null;
+	
+	    // Whatever comes after ? and # is ignored
+	    var loc = splitLocation(location),
+	      match,
+	      pattern;
+	
+	    var data = {
+	      params: [],
+	      namedParams: {},
+	      pathParams: {},
+	      queryParams: querystring.parse(loc.queryString),
+	      namedQueryParams: {},
+	      hashParams: {}
+	    };
+	
+	    var addMatch = function (match) {
+	      data.params = data.params.concat(match.params);
+	      data.namedParams = merge(data.namedParams, match.namedParams);
+	    };
+	
+	    if (pattern = this.pathPattern) {
+	      match = pattern.match(loc.path);
+	      if (match) addMatch(match);
+	      data.pathParams = match ? match.namedParams : {};
+	    }
+	    if (pattern = this.queryStringPattern) {
+	      match = pattern.match(loc.queryString);
+	      if (match) addMatch(match);
+	      data.namedQueryParams = match ? match.namedQueryParams : {};
+	    }
+	    if (pattern = this.hashPattern) {
+	      match = pattern.match(loc.hash);
+	      if (match) addMatch(match);
+	      data.hashParams = match ? match.namedParams : {};
+	    }
+	    return data;
+	  };
+	
+	  // This compiles a route string into a set of options which a new RoutePattern is created with 
+	  RoutePattern.fromString = function (routeString) {
+	    var parts = splitLocation(routeString);
+	
+	    var matchPath = parts.path;
+	    var matchQueryString = parts.queryString || routeString.indexOf("?") > -1;
+	    var matchHash = parts.hash || routeString.indexOf("#") > -1;
+	
+	    // Options object are created, now instantiate the RoutePattern
+	    return new RoutePattern({
+	      pathPattern: matchPath && PathPattern.fromString(parts.path),
+	      queryStringPattern: matchQueryString && QueryStringPattern.fromString(parts.queryString),
+	      hashPattern: matchHash && PathPattern.fromString(parts.hash),
+	      routeString: routeString
+	    });
+	  };
+	
+	  return RoutePattern;
+	}());
+	
+	// CommonJS export
+	module.exports = RoutePattern;
+	
+	// Also export the individual pattern classes
+	RoutePattern.QueryStringPattern = QueryStringPattern;
+	RoutePattern.PathPattern = PathPattern;
+	RoutePattern.RegExpPattern = RegExpPattern;
+
+
+/***/ },
+/* 4 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	exports.decode = exports.parse = __webpack_require__(5);
+	exports.encode = exports.stringify = __webpack_require__(6);
+
+
+/***/ },
+/* 5 */
+/***/ function(module, exports) {
+
+	// Copyright Joyent, Inc. and other Node contributors.
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a
+	// copy of this software and associated documentation files (the
+	// "Software"), to deal in the Software without restriction, including
+	// without limitation the rights to use, copy, modify, merge, publish,
+	// distribute, sublicense, and/or sell copies of the Software, and to permit
+	// persons to whom the Software is furnished to do so, subject to the
+	// following conditions:
+	//
+	// The above copyright notice and this permission notice shall be included
+	// in all copies or substantial portions of the Software.
+	//
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+	// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+	// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+	// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+	// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+	// USE OR OTHER DEALINGS IN THE SOFTWARE.
+	
+	'use strict';
+	
+	// If obj.hasOwnProperty has been overridden, then calling
+	// obj.hasOwnProperty(prop) will break.
+	// See: https://github.com/joyent/node/issues/1707
+	function hasOwnProperty(obj, prop) {
+	  return Object.prototype.hasOwnProperty.call(obj, prop);
+	}
+	
+	module.exports = function(qs, sep, eq, options) {
+	  sep = sep || '&';
+	  eq = eq || '=';
+	  var obj = {};
+	
+	  if (typeof qs !== 'string' || qs.length === 0) {
+	    return obj;
+	  }
+	
+	  var regexp = /\+/g;
+	  qs = qs.split(sep);
+	
+	  var maxKeys = 1000;
+	  if (options && typeof options.maxKeys === 'number') {
+	    maxKeys = options.maxKeys;
+	  }
+	
+	  var len = qs.length;
+	  // maxKeys <= 0 means that we should not limit keys count
+	  if (maxKeys > 0 && len > maxKeys) {
+	    len = maxKeys;
+	  }
+	
+	  for (var i = 0; i < len; ++i) {
+	    var x = qs[i].replace(regexp, '%20'),
+	        idx = x.indexOf(eq),
+	        kstr, vstr, k, v;
+	
+	    if (idx >= 0) {
+	      kstr = x.substr(0, idx);
+	      vstr = x.substr(idx + 1);
+	    } else {
+	      kstr = x;
+	      vstr = '';
+	    }
+	
+	    k = decodeURIComponent(kstr);
+	    v = decodeURIComponent(vstr);
+	
+	    if (!hasOwnProperty(obj, k)) {
+	      obj[k] = v;
+	    } else if (isArray(obj[k])) {
+	      obj[k].push(v);
+	    } else {
+	      obj[k] = [obj[k], v];
+	    }
+	  }
+	
+	  return obj;
+	};
+	
+	var isArray = Array.isArray || function (xs) {
+	  return Object.prototype.toString.call(xs) === '[object Array]';
+	};
+
+
+/***/ },
+/* 6 */
+/***/ function(module, exports) {
+
+	// Copyright Joyent, Inc. and other Node contributors.
+	//
+	// Permission is hereby granted, free of charge, to any person obtaining a
+	// copy of this software and associated documentation files (the
+	// "Software"), to deal in the Software without restriction, including
+	// without limitation the rights to use, copy, modify, merge, publish,
+	// distribute, sublicense, and/or sell copies of the Software, and to permit
+	// persons to whom the Software is furnished to do so, subject to the
+	// following conditions:
+	//
+	// The above copyright notice and this permission notice shall be included
+	// in all copies or substantial portions of the Software.
+	//
+	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+	// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+	// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+	// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+	// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+	// USE OR OTHER DEALINGS IN THE SOFTWARE.
+	
+	'use strict';
+	
+	var stringifyPrimitive = function(v) {
+	  switch (typeof v) {
+	    case 'string':
+	      return v;
+	
+	    case 'boolean':
+	      return v ? 'true' : 'false';
+	
+	    case 'number':
+	      return isFinite(v) ? v : '';
+	
+	    default:
+	      return '';
+	  }
+	};
+	
+	module.exports = function(obj, sep, eq, name) {
+	  sep = sep || '&';
+	  eq = eq || '=';
+	  if (obj === null) {
+	    obj = undefined;
+	  }
+	
+	  if (typeof obj === 'object') {
+	    return map(objectKeys(obj), function(k) {
+	      var ks = encodeURIComponent(stringifyPrimitive(k)) + eq;
+	      if (isArray(obj[k])) {
+	        return map(obj[k], function(v) {
+	          return ks + encodeURIComponent(stringifyPrimitive(v));
+	        }).join(sep);
+	      } else {
+	        return ks + encodeURIComponent(stringifyPrimitive(obj[k]));
+	      }
+	    }).join(sep);
+	
+	  }
+	
+	  if (!name) return '';
+	  return encodeURIComponent(stringifyPrimitive(name)) + eq +
+	         encodeURIComponent(stringifyPrimitive(obj));
+	};
+	
+	var isArray = Array.isArray || function (xs) {
+	  return Object.prototype.toString.call(xs) === '[object Array]';
+	};
+	
+	function map (xs, f) {
+	  if (xs.map) return xs.map(f);
+	  var res = [];
+	  for (var i = 0; i < xs.length; i++) {
+	    res.push(f(xs[i], i));
+	  }
+	  return res;
+	}
+	
+	var objectKeys = Object.keys || function (obj) {
+	  var res = [];
+	  for (var key in obj) {
+	    if (Object.prototype.hasOwnProperty.call(obj, key)) res.push(key);
+	  }
+	  return res;
+	};
 
 
 /***/ }

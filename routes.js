@@ -1,4 +1,18 @@
 var path = require('path');
+var RoutePattern = require('route-pattern');
+
+/*
+(function() {
+  var defined = '/hello/:planet?foo=:foo&fruit=:fruit#:section';
+  var url = '/hello/earth?foo=bar&fruit=apple#chapter2';
+  var pattern = RoutePattern.fromString(defined);
+  var matches = pattern.matches(url);
+  var params = pattern.match(url);
+  
+  console.log('match', matches);
+  console.log(JSON.stringify(params, null, '  '));
+});
+*/
 
 function normalize(url, doc) {
   if( !url || typeof url !== 'string' ) throw new TypeError('illegal url');
@@ -66,10 +80,31 @@ function addEventListener(scope, type, fn, bubble) {
   else scope.addEventListener(type,fn,bubble);
 }
 
-function match(requri, uri) {
-  //TODO: fix regexp matching
-  return requri === uri;
+function patternize(source, ignoresubdir) {
+  var pettern = RoutePattern.fromString(source);
+  var ap = RoutePattern.fromString(source + '/*after');
+  
+  return {
+    match: function(url) {
+      if( source === '/' ) return ignoresubdir ? true : (source === url);
+      
+      if( pettern.matches(url) ) {
+        return pettern.match(url).namedParams;
+      } else if( ignoresubdir && ap.matches(url) ) {
+        var params = ap.match(url).namedParams;
+        delete params.after;
+        return params;
+      }
+      return false;
+    },
+    matches: function(url) {
+      return pattern.matches(url) ? true : (ignoresubdir && ap.matches(url) ? true : false);
+    }
+  };
 }
+
+//var p = patternize('/', true);
+//console.log('/a/b/c', p.match('/a/b/c'));
 
 function capture(o) {
   return JSON.parse(JSON.stringify(o));
@@ -84,24 +119,29 @@ function chain(scope, req, res, routes, next) {
     var uri = route.uri;
     var type = route.type;
     var fn = route.fn;
+    var params = route.params;
     
-    //console.log('current', uri, type, fn);
-    if( type === 'use' && uri ) {
-      if( uri && uri.trim() === '/' ) uri = '';
-      
-      var opurl = req.purl || '';
-      var ourl = req.url;
-      req.purl = path.join(opurl, ourl.substring(0, uri.length));
-      req.url = ourl.substring(uri.length) || '/';
-      
-      //console.log('routing', uri, ourl, req.purl, req.url);
-      
-      fn.apply(scope, [req, res, forward]);
-      req.purl = opurl;
-      req.url = ourl;
-    } else {
-      fn.apply(scope, [req, res, forward]);
-    }
+    if( uri && uri.trim() === '/' ) uri = '';
+    
+    var oParentUrl = req.parentUrl || '/';
+    var oUrl = req.url;
+    req.parentUrl = path.join(oParentUrl, oUrl.substring(0, uri.length));
+    req.url = oUrl.substring(uri.length) || '/';
+    req.params = params;
+    
+    /*console.log('routing', capture({
+      //type: type,
+      uri: uri,
+      url: req.url,
+      parentUrl: req.parentUrl,
+      oParentUrl: oParentUrl,
+      oUrl: oUrl
+    }));*/
+    
+    fn.apply(scope, [req, res, forward]);
+    req.parentUrl = oParentUrl;
+    req.url = oUrl;
+    req.params = {};
   };
 }
 
@@ -120,18 +160,32 @@ function Router(name) {
   var listeners = {};
   
   var body = function Router(req, res, next) {
+    if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
     next = next || function() {};
     
     //console.log('body', req.baseUrl, req.url);
-    var fns = [];
+    var fns = [], found = false;
     routes.forEach(function(route) {
       //console.log('[' + name + '] route', route);
-      if( !boot && route.boot ) return;
-      if( route.type === 'use' ) {
-        if( route.uri === '/' || !req.url.indexOf(route.uri) || match(req.url, route.uri) ) return fns.push(route);
-      } else if( route.type === 'get' ) {
-        //console.log(name, req.url || '(no)', route.uri || '(no)');
-        if( match(req.url, route.uri) ) return fns.push(route);
+      if( route.type === 'boot' ) {
+        if( boot ) fns.push(route);
+        return;
+      }
+      
+      if( found ) return;
+      
+      //console.log(route.uri, req.url, route.pattern.match(req.url));
+      var params;
+      if( (params = route.pattern.match(req.url)) ) {
+        if( route.type === 'get' ) found = true;
+        
+        return fns.push({
+          type: route.type,
+          fn: route.fn,
+          uri: route.uri,
+          pattern: route.pattern,
+          params: params
+        });
       }
     });
     
@@ -158,23 +212,24 @@ function Router(name) {
   };
   
   body.use = function(uri, fn) {
-    if( typeof uri === 'function' ) fn = uri, uri = null;
-    if( uri && typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
+    if( typeof uri === 'function' ) fn = uri, uri = '/';
+    if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
     if( typeof fn === 'string' ) fn = redirector(fn);
     if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
-    //if( uri && !endsWith(uri, '/') ) uri = uri + '/';
     uri = uri ? uri.trim() : '/';
     if( uri[0] !== '/' ) uri = '/' + uri;
     
     routes.push({
       type: 'use',
       uri: uri,
+      pattern: patternize(uri, true),
       fn: fn
     });
     return this;
   };
   
   body.get = function(uri, fn) {
+    if( typeof uri === 'function' ) fn = uri, uri = '/';
     if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
     if( typeof fn === 'string' ) fn = redirector(fn);
     if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
@@ -184,6 +239,7 @@ function Router(name) {
     routes.push({
       type: 'get',
       uri: uri,
+      pattern: patternize(uri),
       fn: fn
     });
     return this;
@@ -192,8 +248,7 @@ function Router(name) {
   body.boot = function(fn) {
     if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
     routes.push({
-      type: 'use',
-      boot: true,
+      type: 'boot',
       fn: fn
     });
     return this;
@@ -336,13 +391,13 @@ function Routes(options) {
     
     response = {
       redirect: function(tourl) {
-        //console.info('redirect', url, request.purl, request.url, request);
+        //console.info('redirect', url, request.parentUrl, request.url, request);
         if( tourl.startsWith('#') ) {
           location.href = tourl;
         } else if( tourl.startsWith('/') ) {
           exec(path.join(baseURL, tourl));
         } else {
-          exec(path.join(baseURL, request.purl, request.url, tourl));
+          exec(path.join(baseURL, request.parentUrl, request.url, tourl));
         }
         
         router.fire('redirect', {
