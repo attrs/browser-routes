@@ -1,12 +1,12 @@
 /*!
-* browser-routes v0.0.4
+* browser-routes v0.0.5
 * https://github.com/attrs/browser-routes
 *
 * Copyright attrs and others
 * Released under the MIT license
 * https://github.com/attrs/browser-routes/blob/master/LICENSE
 *
-* Date: Sun Jul 03 2016 04:35:43 GMT+0900 (KST)
+* Date: Sun Jul 03 2016 04:36:03 GMT+0900 (KST)
 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
