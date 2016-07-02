@@ -6,7 +6,7 @@
 * Released under the MIT license
 * https://github.com/attrs/browser-routes/blob/master/LICENSE
 *
-* Date: Sun Jul 03 2016 04:33:12 GMT+0900 (KST)
+* Date: Sun Jul 03 2016 04:35:43 GMT+0900 (KST)
 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -457,13 +457,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    response = {
 	      redirect: function(tourl) {
-	        //console.info('redirect', url, request.purl, request.url, request);
+	        //console.info('redirect', url, request.parentUrl, request.url, request);
 	        if( tourl.startsWith('#') ) {
 	          location.href = tourl;
 	        } else if( tourl.startsWith('/') ) {
 	          exec(path.join(baseURL, tourl));
 	        } else {
-	          exec(path.join(baseURL, request.purl, request.url, tourl));
+	          exec(path.join(baseURL, request.parentUrl, request.url, tourl));
 	        }
 	        
 	        router.fire('redirect', {
