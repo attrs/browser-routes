@@ -6,7 +6,7 @@
 * Released under the MIT license
 * https://github.com/attrs/browser-routes/blob/master/LICENSE
 *
-* Date: Sun Jul 03 2016 04:36:03 GMT+0900 (KST)
+* Date: Mon Jul 04 2016 15:44:56 GMT+0900 (KST)
 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -169,68 +169,85 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	}
 	
-	//var p = patternize('/', true);
-	//console.log('/a/b/c', p.match('/a/b/c'));
+	function dividepath(axis, full) {
+	  if( axis[0] === '/' ) axis = axis.substring(1);
+	  if( full[0] === '/' ) full = full.substring(1);
+	  if( endsWith(axis, '/') ) axis = axis.substring(0, axis.length - 1);
+	  if( endsWith(full, '/') ) full = full.substring(0, full.length - 1);
+	  if( !axis ) return {
+	    sub: '/' + full,
+	    parent: '/'
+	  };
+	  
+	  while(~axis.indexOf('//')) axis.split('//').join('/');
+	  while(~full.indexOf('//')) full.split('//').join('/');
+	  
+	  axis = axis.split('/');
+	  full = full.split('/');
+	  var sub = [], parent = [];
+	  
+	  for(var i=0; i < full.length; i++) {
+	    if( axis[i] && axis[i][0] !== ':' &&  full[i] !== axis[i] ) return null;
+	    
+	    if( i >= axis.length ) sub.push(full[i]);
+	    else parent.push(full[i]);
+	  }
+	  
+	  return {
+	    parent: '/' + parent.join('/'),
+	    sub: '/' + sub.join('/')
+	  };
+	}
+	
+	/*
+	console.log('/', subpath('/', '/system/user/list'));
+	console.log('/system', subpath('/system', '/system/user/list'));
+	console.log('/system/user', subpath('/system/user', '/system/user/list'));
+	console.log('/system/user/list', subpath('/system/user/list', '/system/user/list'));
+	console.log('/:a', subpath('/:a', '/system/user/list'));
+	console.log('/:a/:b', subpath('/:a/:b', '/system/user/list'));
+	console.log('/:a/:b/:c', subpath('/:a/:b/:c', '/system/user/list'));
+	
+	var p = patternize('/', true);
+	console.log('/a/b/c', p.match('/a/b/c'));
+	*/
 	
 	function capture(o) {
 	  return JSON.parse(JSON.stringify(o));
 	}
 	
-	function chain(scope, req, res, routes, next) {
-	  var i = 0, forward;
-	  return forward = function(err) {
-	    var route = routes[i++];
-	    if( err || !route ) return next(err);
-	    
-	    var uri = route.uri;
-	    var type = route.type;
-	    var fn = route.fn;
-	    var params = route.params;
-	    
-	    if( uri && uri.trim() === '/' ) uri = '';
-	    
-	    var oParentUrl = req.parentUrl || '/';
-	    var oUrl = req.url;
-	    req.parentUrl = path.join(oParentUrl, oUrl.substring(0, uri.length));
-	    req.url = oUrl.substring(uri.length) || '/';
-	    req.params = params;
-	    
-	    /*console.log('routing', capture({
-	      //type: type,
-	      uri: uri,
-	      url: req.url,
-	      parentUrl: req.parentUrl,
-	      oParentUrl: oParentUrl,
-	      oUrl: oUrl
-	    }));*/
-	    
-	    fn.apply(scope, [req, res, forward]);
-	    req.parentUrl = oParentUrl;
-	    req.url = oUrl;
-	    req.params = {};
+	function redirector(url) {
+	  return function redirector(req, res, next) {
+	    res.redirect(url);
 	  };
 	}
 	
-	function redirector(uri) {
-	  return function redirector(req, res, next) {
-	    res.redirect(uri);
-	  };
+	function mix() {
+	  var result = {};
+	  [].forEach.call(arguments, function(o) {
+	    if( o && typeof o === 'object' ) {
+	      for(var k in o ) result[k] = o[k];
+	    }
+	  });
+	  return result;
 	}
 	
 	
 	// factory Router
-	function Router(name) {
-	  name = name || 'unknwon';
+	function Router(id) {
+	  id = id || 'unknwon';
 	  var boot = true;
 	  var routes = [];
 	  var listeners = {};
 	  
 	  var body = function Router(req, res, next) {
+	    //console.log('router', req.url);
 	    if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
+	    
 	    next = next || function() {};
 	    
 	    //console.log('body', req.baseUrl, req.url);
-	    var fns = [], found = false;
+	    var fns = [];
 	    routes.forEach(function(route) {
 	      //console.log('[' + name + '] route', route);
 	      if( route.type === 'boot' ) {
@@ -238,74 +255,107 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return;
 	      }
 	      
-	      if( found ) return;
-	      
-	      //console.log(route.uri, req.url, route.pattern.match(req.url));
-	      var params;
-	      if( (params = route.pattern.match(req.url)) ) {
-	        if( route.type === 'get' ) found = true;
-	        
-	        return fns.push({
-	          type: route.type,
-	          fn: route.fn,
-	          uri: route.uri,
-	          pattern: route.pattern,
-	          params: params
-	        });
-	      }
+	      //console.log(route.path, req.url, route.pattern.match(req.url));
+	      var params = route.pattern.match(req.url);
+	      if( params ) return fns.push({
+	        type: route.type,
+	        fn: route.fn,
+	        path: route.path,
+	        pattern: route.pattern,
+	        params: params
+	      });
 	    });
 	    
+	    if( !fns.length ) return next();
+	    
 	    /*console.info('[' + name + '] fns', req.url, fns.map(function(o) {
-	      return (o.uri || 'any') + '(' + (o.fn.name || 'unnamed') + ')';
+	      return (o.path || 'any') + '(' + (o.fn.name || 'unnamed') + ')';
 	    }));*/
 	    
 	    req.boot = boot;
-	    chain(body, req, res, fns, next)(req.error);
 	    boot = false;
+	    
+	    var oParentUrl = req.parentUrl || '';
+	    var oUrl = req.url;
+	    var oParams = req.params || {};
+	    var i = 0;
+	    var forward = function(err) {
+	      req.params = oParams;
+	      req.parentUrl = oParentUrl;
+	      req.url = oUrl;
+	      
+	      var route = fns[i++];
+	      if( !route ) return next(err);
+	      
+	      var div = dividepath(route.path, req.url);
+	      req.params = mix(oParams, route.params);
+	      
+	      if( route.fn.__router__ ) {
+	        req.url = div.sub;
+	        req.parentUrl = path.join(oParentUrl, div.parent);
+	        /*console.log('routing', capture({
+	          //type: type,
+	          //id: route.fn.id,
+	          path: route.path,
+	          url: req.url,
+	          parentUrl: req.parentUrl,
+	          oParentUrl: oParentUrl,
+	          oUrl: oUrl
+	        }));*/
+	        
+	        route.fn.apply(body, [req, res, forward]);
+	      } else {
+	        route.fn.apply(body, [req, res, forward]);
+	      }
+	    };
+	    forward();
 	  };
 	  
+	  body.id = id;
+	  body.__router__ = true;
 	  body.exists = function(url) {
 	    var exists = false;
 	    routes.forEach(function(route) {
-	      //console.log('exists', url, route.uri);
-	      if( route.type === 'get' && match(url, route.uri) ) return exists = true;
-	      else if( route.type === 'use' && route.uri && !url.indexOf(route.uri) ) { // middleware 는 포함하지 않음
-	        if( typeof route.fn.exists !== 'function' ) return exists = match(url, route.uri);
-	        exists = route.fn.exists(url.substring(route.uri.length));
+	      if( exists ) return;
+	      if( route.type === 'get' ) {
+	        var params = route.pattern.match(url);
+	        if( params ) exists = true;
+	      } else if( route.type === 'use' ) {
+	        exists = route.fn.exists(url.substring(route.path.length));
 	      }
 	    });
 	    return exists;
 	  };
 	  
-	  body.use = function(uri, fn) {
-	    if( typeof uri === 'function' ) fn = uri, uri = '/';
-	    if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
+	  body.use = function(path, fn) {
+	    if( typeof path === 'function' ) fn = path, path = '/';
+	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    if( typeof fn === 'string' ) fn = redirector(fn);
 	    if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
-	    uri = uri ? uri.trim() : '/';
-	    if( uri[0] !== '/' ) uri = '/' + uri;
+	    path = path ? path.trim() : '/';
+	    if( path[0] !== '/' ) path = '/' + path;
 	    
 	    routes.push({
 	      type: 'use',
-	      uri: uri,
-	      pattern: patternize(uri, true),
+	      path: path,
+	      pattern: patternize(path, true),
 	      fn: fn
 	    });
 	    return this;
 	  };
 	  
-	  body.get = function(uri, fn) {
-	    if( typeof uri === 'function' ) fn = uri, uri = '/';
-	    if( typeof uri !== 'string' ) throw new TypeError('illegal type of uri:' + typeof(uri));
+	  body.get = function(path, fn) {
+	    if( typeof path === 'function' ) fn = path, path = '/';
+	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    if( typeof fn === 'string' ) fn = redirector(fn);
 	    if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
-	    uri = uri ? uri.trim() : '/';
-	    if( uri[0] !== '/' ) uri = '/' + uri;
+	    path = path ? path.trim() : '/';
+	    if( path[0] !== '/' ) path = '/' + path;
 	    
 	    routes.push({
 	      type: 'get',
-	      uri: uri,
-	      pattern: patternize(uri),
+	      path: path,
+	      pattern: patternize(path),
 	      fn: fn
 	    });
 	    return this;
@@ -449,11 +499,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      parsed: parsed,
 	      baseURL: baseURL,
 	      requestURL: fullpath,
-	      url: url,
+	      url: url || '/',
 	      hashname: hash,
 	      query: parseQuery(query),
 	      params: {}
 	    };
+	    
+	    //console.log('req', capture(request));
 	    
 	    response = {
 	      redirect: function(tourl) {
@@ -497,7 +549,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  // --- wire to router
-	  this.use = function(uri, fn) {
+	  this.use = function(path, fn) {
 	    router.use.apply(router, arguments);
 	    return this;
 	  };
@@ -507,8 +559,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
-	  this.get = function(uri, fn) {
-	    router.get(uri, fn);
+	  this.get = function(path, fn) {
+	    router.get(path, fn);
 	    return this;
 	  };
 	  
@@ -527,8 +579,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
-	  this.exists = function(uri) {
-	    return router.exists(uri);
+	  this.exists = function(path) {
+	    return router.exists(path);
 	  };
 	  
 	  this.clear = function() {
