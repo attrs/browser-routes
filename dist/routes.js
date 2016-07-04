@@ -5,7 +5,6 @@
 * Copyright attrs and others
 * Released under the MIT license
 * https://github.com/attrs/browser-routes/blob/master/LICENSE
-*
 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -286,7 +285,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var route = fns[i++];
 	      if( !route ) return next(err);
 	      
-	      var div = dividepath(route.path, req.url);
+	      var div = dividepath(route.path || '', req.url);
 	      req.params = mix(oParams, route.params);
 	      
 	      if( route.fn.__router__ ) {
