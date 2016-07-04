@@ -1,6 +1,6 @@
 {
   "name": "browser-routes",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "router for browser",
   "main": "index.js",
   "browser": "routes.js",
