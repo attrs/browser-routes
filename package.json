@@ -7,6 +7,9 @@
   "homepage": "https://github.com/attrs/browser-routes",
   "repository": "attrs/browser-routes",
   "author": "joje <joje.attrs@gmail.com>",
+  "scripts": {
+    "prepublish": "gulp"
+  },
   "license": "MIT",
   "files": [
     "package.json",

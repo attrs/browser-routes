@@ -37,7 +37,6 @@ gulp.task('build', ['build.webpack'], () => {
       '* Released under the MIT license',
       '* https://github.com/<%=pkg.repository%>/blob/master/LICENSE',
       '*',
-      '* Date: ' + new Date(),
       '*/',
       ''
     ].join('\n'), { pkg: pkg }))
