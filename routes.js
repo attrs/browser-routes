@@ -221,7 +221,7 @@ function Router(id) {
       var route = fns[i++];
       if( !route ) return next(err);
       
-      var div = dividepath(route.path, req.url);
+      var div = dividepath(route.path || '', req.url);
       req.params = mix(oParams, route.params);
       
       if( route.fn.__router__ ) {
