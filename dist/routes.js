@@ -655,8 +655,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( !a.__routes_managed__ ) {
 	        a.__routes_managed__ = true;
 	        addEventListener(a, 'click', function(e) {
+	          var href = a.getAttribute('href');
+	          var p = href.indexOf(':'), s = href.indexOf('/');
+	          if( !href || (~p && p < s) ) return;
 	          e.preventDefault();
-	          routes.href(a.getAttribute('href'));
+	          routes.href(href);
 	        });
 	      }
 	      return this;
@@ -692,6 +695,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  
 	  if( document.body ) bootup();
 	  else addEventListener(document, 'DOMContentLoaded', bootup);
+	  
+	  window.routes = routes.href;
 	})();
 	
 	module.exports = routes;
