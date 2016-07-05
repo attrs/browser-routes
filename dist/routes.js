@@ -670,27 +670,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return this;
 	    }
 	    
-	    // observe anchor tags
-	    if( observer ) observer.disconnect();
-	    observer = new MutationObserver(function(mutations) {
-	      mutations.forEach(function(mutation) {
-	        [].forEach.call(mutation.addedNodes, function(node) {
-	          if( node.nodeType === 1 ) {
-	            if( node.hasAttribute('routes') ) routify(node);
-	            if( node.hasAttribute('data-routes') ) routify(node);
-	            if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll('[routes], [data-routes]'), routify);
-	          }
-	        });
-	      });
-	    });
-	    
-	    observer.observe(document.body, {
-	      childList: true,
-	      subtree: true
-	    });
-	    
 	    scan();
 	    routes.exec(location.href);
+	    
+	    // observe anchor tags
+	    if( window.MutationObserver && config('observe') !== 'false' ) {
+	      if( observer ) observer.disconnect();
+	      observer = new MutationObserver(function(mutations) {
+	        mutations.forEach(function(mutation) {
+	          [].forEach.call(mutation.addedNodes, function(node) {
+	            if( node.nodeType === 1 ) {
+	              if( node.hasAttribute('routes') ) routify(node);
+	              if( node.hasAttribute('data-routes') ) routify(node);
+	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll('[routes], [data-routes]'), routify);
+	            }
+	          });
+	        });
+	      });
+	    
+	      observer.observe(document.body, {
+	        childList: true,
+	        subtree: true
+	      });
+	    }
 	  }
 	  
 	  if( document.body ) bootup();
