@@ -1,5 +1,5 @@
 /*!
-* browser-routes v0.0.9
+* browser-routes v0.0.10
 * https://github.com/attrs/browser-routes
 *
 * Copyright attrs and others
