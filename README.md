@@ -60,7 +60,7 @@ Routes
 ```
 
 ### In HTML
-> use `routes` attribute or javascript:routes(...)
+> use `routes` attribute or `javascript:routes(...)`
 
 ```html
 <a href="/a/b/c/d/e" routes>/a/b/c/d/e</a>
