@@ -8,6 +8,7 @@
   "repository": "attrs/browser-routes",
   "author": "joje <joje.attrs@gmail.com>",
   "scripts": {
+    "test": "wpm up examples -s",
     "prepublish": "gulp"
   },
   "license": "MIT",
