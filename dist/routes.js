@@ -273,13 +273,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    req.boot = boot;
 	    boot = false;
 	    
-	    var oParentUrl = req.parentUrl || '';
+	    var oParentUrl = req.parentURL || '';
 	    var oUrl = req.url;
 	    var oParams = req.params || {};
 	    var i = 0;
 	    var forward = function(err) {
 	      req.params = oParams;
-	      req.parentUrl = oParentUrl;
+	      req.parentURL = oParentUrl;
+	      req.parentUrl = req.parentURL;
 	      req.url = oUrl;
 	      
 	      var route = fns[i++];
@@ -290,13 +291,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	      
 	      if( route.fn.__router__ ) {
 	        req.url = div.sub;
-	        req.parentUrl = path.join(oParentUrl, div.parent);
+	        req.parentURL = path.join(oParentUrl, div.parent);
+	        //req.parentUrl = req.parentURL;
+	        
 	        /*console.log('routing', capture({
 	          //type: type,
 	          //id: route.fn.id,
 	          path: route.path,
 	          url: req.url,
-	          parentUrl: req.parentUrl,
+	          parentURL: req.parentURL,
 	          oParentUrl: oParentUrl,
 	          oUrl: oUrl
 	        }));*/
@@ -507,13 +510,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    response = {
 	      redirect: function(tourl) {
-	        //console.info('redirect', url, request.parentUrl, request.url, request);
+	        //console.info('redirect', url, request.parentURL, request.url, request);
 	        if( tourl.startsWith('#') ) {
 	          location.href = tourl;
 	        } else if( tourl.startsWith('/') ) {
 	          exec(path.join(baseURL, tourl));
 	        } else {
-	          exec(path.join(baseURL, request.parentUrl, request.url, tourl));
+	          exec(path.join(baseURL, request.parentURL, request.url, tourl));
 	        }
 	        
 	        router.fire('redirect', {
@@ -537,7 +540,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      response: response
 	    });
 	    
-	    router(request, response);
+	    var self = this;
+	    router(request, response, function(err) {
+	      if( !err ) self.exechash();
+	    });
 	    return this;
 	  };
 	  
