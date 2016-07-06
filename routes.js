@@ -180,7 +180,7 @@ function Router(id) {
     
     next = next || function() {};
     
-    //console.log('body', req.baseUrl, req.url);
+    //console.log('body', req.baseURL, req.url);
     var fns = [];
     routes.forEach(function(route) {
       //console.log('[' + name + '] route', route);
@@ -209,15 +209,15 @@ function Router(id) {
     req.boot = boot;
     boot = false;
     
-    var oParentUrl = req.parentURL || '';
-    var oUrl = req.url;
+    var oParentURL = req.parentURL || '';
+    var oURL = req.url;
     var oParams = req.params || {};
     var i = 0;
     var forward = function(err) {
       req.params = oParams;
-      req.parentURL = oParentUrl;
-      req.parentUrl = req.parentURL;
-      req.url = oUrl;
+      req.parentURL = oParentURL;
+      req.parentURL = req.parentURL;
+      req.url = oURL;
       
       var route = fns[i++];
       if( !route ) return next(err);
@@ -227,8 +227,8 @@ function Router(id) {
       
       if( route.fn.__router__ ) {
         req.url = div.sub;
-        req.parentURL = path.join(oParentUrl, div.parent);
-        //req.parentUrl = req.parentURL;
+        req.parentURL = path.join(oParentURL, div.parent);
+        //req.parentURL = req.parentURL;
         
         /*console.log('routing', capture({
           //type: type,
@@ -236,8 +236,8 @@ function Router(id) {
           path: route.path,
           url: req.url,
           parentURL: req.parentURL,
-          oParentUrl: oParentUrl,
-          oUrl: oUrl
+          oParentURL: oParentURL,
+          oURL: oURL
         }));*/
         
         route.fn.apply(body, [req, res, forward]);
