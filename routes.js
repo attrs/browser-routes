@@ -175,7 +175,6 @@ function Router(id) {
   var listeners = {};
   
   var body = function Router(req, res, next) {
-    //console.log('router', req.url);
     if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
     
     next = next || function() {};
@@ -573,7 +572,9 @@ routes.Router = Router;
     });
     
     routes.href = function(url) {
-      history.pushState(null, null, routes.normalize(url));
+      if( !url || typeof url !== 'string' ) url = '/';
+      if( url[0] === '#' ) location.href = url;
+      else history.pushState(null, null, routes.normalize(url));
     };
   } else if( mode === 'hash' ) {
     if( !('onhashchange' in window) ) return console.error('[routes] unsupported \'onhashchange\'');

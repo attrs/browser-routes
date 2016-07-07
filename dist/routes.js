@@ -239,12 +239,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var listeners = {};
 	  
 	  var body = function Router(req, res, next) {
-	    //console.log('router', req.url);
 	    if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
 	    
 	    next = next || function() {};
 	    
-	    //console.log('body', req.baseUrl, req.url);
+	    //console.log('body', req.baseURL, req.url);
 	    var fns = [];
 	    routes.forEach(function(route) {
 	      //console.log('[' + name + '] route', route);
@@ -273,15 +272,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    req.boot = boot;
 	    boot = false;
 	    
-	    var oParentUrl = req.parentURL || '';
-	    var oUrl = req.url;
+	    var oParentURL = req.parentURL || '';
+	    var oURL = req.url;
 	    var oParams = req.params || {};
 	    var i = 0;
 	    var forward = function(err) {
 	      req.params = oParams;
-	      req.parentURL = oParentUrl;
-	      req.parentUrl = req.parentURL;
-	      req.url = oUrl;
+	      req.parentURL = oParentURL;
+	      req.parentURL = req.parentURL;
+	      req.url = oURL;
 	      
 	      var route = fns[i++];
 	      if( !route ) return next(err);
@@ -291,8 +290,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      
 	      if( route.fn.__router__ ) {
 	        req.url = div.sub;
-	        req.parentURL = path.join(oParentUrl, div.parent);
-	        //req.parentUrl = req.parentURL;
+	        req.parentURL = path.join(oParentURL, div.parent);
+	        //req.parentURL = req.parentURL;
 	        
 	        /*console.log('routing', capture({
 	          //type: type,
@@ -300,8 +299,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	          path: route.path,
 	          url: req.url,
 	          parentURL: req.parentURL,
-	          oParentUrl: oParentUrl,
-	          oUrl: oUrl
+	          oParentURL: oParentURL,
+	          oURL: oURL
 	        }));*/
 	        
 	        route.fn.apply(body, [req, res, forward]);
@@ -637,7 +636,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    });
 	    
 	    routes.href = function(url) {
-	      history.pushState(null, null, routes.normalize(url));
+	      if( !url || typeof url !== 'string' ) url = '/';
+	      if( url[0] === '#' ) location.href = url;
+	      else history.pushState(null, null, routes.normalize(url));
 	    };
 	  } else if( mode === 'hash' ) {
 	    if( !('onhashchange' in window) ) return console.error('[routes] unsupported \'onhashchange\'');

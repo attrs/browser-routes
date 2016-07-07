@@ -36,22 +36,22 @@ Routes.use(...);
 ```javascript
 Routes
   .use(function(req, res, next) {
-    console.log('1', req.url, req.parentUrl, req.params);
+    console.log('1', req.url, req.parentURL, req.params);
     next();
   })
   .use('/:a', function(req, res, next) {
-    console.log('2', req.url, req.parentUrl, req.params);
+    console.log('2', req.url, req.parentURL, req.params);
     next();
   })
   .use('/:a', Routes.router()
     .use('/:b', Routes.router()
       .get('/:c', function(req, res, next) {
-        console.log('3', req.url, req.parentUrl, req.params);
+        console.log('3', req.url, req.parentURL, req.params);
         next();
       })
       .use('/:b', Routes.router()
         .get('/:d', function(req, res, next) {
-          console.log('4', req.url, req.parentUrl, req.params);
+          console.log('4', req.url, req.parentURL, req.params);
           next();
         })
       )
