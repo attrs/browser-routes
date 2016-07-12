@@ -673,7 +673,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	  
 	    function scan() {
-	      [].forEach.call(document.querySelectorAll('[route], [data-route]'), routify);
+	      [].forEach.call(document.querySelectorAll('[route], [data-route], [routes], [data-routes]'), routify);
 	      return this;
 	    }
 	    
@@ -687,9 +687,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        mutations.forEach(function(mutation) {
 	          [].forEach.call(mutation.addedNodes, function(node) {
 	            if( node.nodeType === 1 ) {
-	              if( node.hasAttribute('route') ) routify(node);
-	              if( node.hasAttribute('data-route') ) routify(node);
-	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll('[route], [data-route]'), routify);
+	              if( node.hasAttribute('route') || node.hasAttribute('routes') ) routify(node);
+	              if( node.hasAttribute('data-route') || node.hasAttribute('data-routes') ) routify(node);
+	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll('[route], [data-route], [routes], [data-routes]'), routify);
 	            }
 	          });
 	        });
@@ -709,6 +709,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	})();
 	
 	module.exports = routes;
+	
 
 
 /***/ },
