@@ -1,5 +1,5 @@
 {
-  "name": "routes",
+  "name": "x-router",
   "description": "router for browser",
   "main": "dist/routes.min.js",
   "moduleType": ["node", "amd", "globals"],

@@ -1,20 +1,20 @@
 /*!
-* browser-routes v0.0.13
-* https://github.com/attrs/browser-routes
+* x-router v0.1.0
+* https://github.com/attrs/x-router
 *
 * Copyright attrs and others
 * Released under the MIT license
-* https://github.com/attrs/browser-routes/blob/master/LICENSE
+* https://github.com/attrs/x-router/blob/master/LICENSE
 */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
 	else if(typeof define === 'function' && define.amd)
-		define("Routes", [], factory);
+		define("Router", [], factory);
 	else if(typeof exports === 'object')
-		exports["Routes"] = factory();
+		exports["Router"] = factory();
 	else
-		root["Routes"] = factory();
+		root["Router"] = factory();
 })(this, function() {
 return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -422,7 +422,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	  body.fire = function(type, detail) {
 	    if( type === 'error' && !(listeners[type] && isteners[type].length) )
-	      return console.error('[routes] error', detail);
+	      return console.error('[x-router] error', detail);
 	    
 	    (listeners[type] || []).forEach(function(listener) {
 	      listener.call(this, {
@@ -617,7 +617,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var mode = config('routes.mode') || (history.pushState ? 'pushstate' : 'hash');
 	  
 	  if( mode === 'pushstate' ) {
-	    if( !history.pushState ) return console.error('[routes] unsupported \'history.pushState\'');
+	    if( !history.pushState ) return console.error('[x-router] unsupported \'history.pushState\'');
 	    
 	    var _pushState = history.pushState;
 	    history.pushState = function(state, title, url) {
@@ -641,7 +641,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      else history.pushState(null, null, routes.normalize(url));
 	    };
 	  } else if( mode === 'hash' ) {
-	    if( !('onhashchange' in window) ) return console.error('[routes] unsupported \'onhashchange\'');
+	    if( !('onhashchange' in window) ) return console.error('[x-router] unsupported \'onhashchange\'');
 	    
 	    addEventListener(window, 'hashchange', function() {
 	      routes.exec(location.hash);
@@ -673,7 +673,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	  
 	    function scan() {
-	      [].forEach.call(document.querySelectorAll('[routes], [data-routes]'), routify);
+	      [].forEach.call(document.querySelectorAll('[route], [data-route]'), routify);
 	      return this;
 	    }
 	    
@@ -687,9 +687,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        mutations.forEach(function(mutation) {
 	          [].forEach.call(mutation.addedNodes, function(node) {
 	            if( node.nodeType === 1 ) {
-	              if( node.hasAttribute('routes') ) routify(node);
-	              if( node.hasAttribute('data-routes') ) routify(node);
-	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll('[routes], [data-routes]'), routify);
+	              if( node.hasAttribute('route') ) routify(node);
+	              if( node.hasAttribute('data-route') ) routify(node);
+	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll('[route], [data-route]'), routify);
 	            }
 	          });
 	        });
@@ -705,7 +705,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  if( document.body ) bootup();
 	  else addEventListener(document, 'DOMContentLoaded', bootup);
 	  
-	  window.routes = routes.href;
+	  window.route = routes.href;
 	})();
 	
 	module.exports = routes;
@@ -1638,4 +1638,4 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ ])
 });
 ;
-//# sourceMappingURL=routes.js.map
+//# sourceMappingURL=x-router.js.map

@@ -2,11 +2,11 @@ var path = require('path');
 var webpack = require('webpack');
 
 module.exports = {
-  entry: path.join(__dirname, 'routes.js'),
+  entry: path.join(__dirname, 'lib/index.js'),
   output: {
     path: path.join(__dirname, 'dist'),
-    filename: 'routes.js',
-    library: 'Routes',
+    filename: 'x-router.js',
+    library: 'Router',
     libraryTarget: 'umd',
     umdNamedDefine: true
   },

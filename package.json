@@ -1,24 +1,16 @@
 {
-  "name": "browser-routes",
-  "version": "0.0.13",
+  "name": "x-router",
+  "version": "0.1.0",
   "description": "router for browser",
-  "main": "index.js",
-  "browser": "routes.js",
-  "homepage": "https://github.com/attrs/browser-routes",
-  "repository": "attrs/browser-routes",
+  "main": "lib/index.js",
+  "homepage": "https://github.com/attrs/x-router",
+  "repository": "attrs/x-router",
   "author": "joje <joje.attrs@gmail.com>",
   "scripts": {
     "test": "wpm up examples -s",
     "prepublish": "gulp"
   },
   "license": "MIT",
-  "files": [
-    "package.json",
-    "routes.js",
-    "dist",
-    "LICENSE",
-    "README.md"
-  ],
   "devDependencies": {
     "gulp": "^3.9.1",
     "gulp-header": "^1.8.3",
@@ -29,7 +21,21 @@
     "webpack": "^1.13.1",
     "webpack-stream": "^3.2.0"
   },
-  "browserDependencies": {
+  "dependencies": {
     "route-pattern": "^0.0.6"
-  }
+  },
+  "files": [
+    "package.json",
+    "routes.js",
+    "lib",
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "router",
+    "routes",
+    "browser",
+    "browserify"
+  ]
 }

@@ -1,40 +1,40 @@
-# browser-routes
+# x-router
 
 [![NPM Version][npm-image]][npm-url] [![NPM Downloads][downloads-image]][downloads-url]
 
-[npm-image]: https://img.shields.io/npm/v/browser-routes.svg?style=flat
-[npm-url]: https://npmjs.org/package/browser-routes
-[downloads-image]: https://img.shields.io/npm/dm/browser-routes.svg?style=flat
-[downloads-url]: https://npmjs.org/package/browser-routes
+[npm-image]: https://img.shields.io/npm/v/x-router.svg?style=flat
+[npm-url]: https://npmjs.org/package/x-router
+[downloads-image]: https://img.shields.io/npm/dm/x-router.svg?style=flat
+[downloads-url]: https://npmjs.org/package/x-router
 
 ## Installation
 
 ```sh
-$ bower install routes --save
+$ bower install x-router --save
 ```
 
 ```html
-<script src="/bower_components/routes/dist/routes.min.js"></script>
+<script src="/bower_components/x-router/dist/x-router.min.js"></script>
 <script>
-  Routes.use(...);
+  Router.use(...);
 </script>
 ```
 
 ### Commonjs way (browserify, webpack, webmodules)
 ```sh
-$ npm install browser-routes --save
+$ npm install x-router --save
 ```
 
 ```javascript
-var Routes = require('browser-routes');
-Routes.use(...);
+var router = require('x-router');
+router.use(...);
 ```
 
 
 ## Usage
 ### Define Routing
 ```javascript
-Routes
+Router
   .use(function(req, res, next) {
     console.log('1', req.url, req.parentURL, req.params);
     next();
@@ -43,13 +43,13 @@ Routes
     console.log('2', req.url, req.parentURL, req.params);
     next();
   })
-  .use('/:a', Routes.router()
-    .use('/:b', Routes.router()
+  .use('/:a', Router.router()
+    .use('/:b', Router.router()
       .get('/:c', function(req, res, next) {
         console.log('3', req.url, req.parentURL, req.params);
         next();
       })
-      .use('/:b', Routes.router()
+      .use('/:b', Router.router()
         .get('/:d', function(req, res, next) {
           console.log('4', req.url, req.parentURL, req.params);
           next();
@@ -60,11 +60,11 @@ Routes
 ```
 
 ### In HTML
-> use `routes` attribute or `javascript:routes(...)`
+> use `route` attribute or `javascript:route(...)`
 
 ```html
-<a href="/a/b/c/d/e" routes>/a/b/c/d/e</a>
-<a href="javascript:routes('/a/b/c/d');">routes('/a/b/c/d')</a>
+<a href="/a/b/c/d/e" route>/a/b/c/d/e</a>
+<a href="javascript:routes('/a/b/c/d');">route('/a/b/c/d')</a>
 ```
 
 

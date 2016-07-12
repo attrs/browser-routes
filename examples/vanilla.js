@@ -1,4 +1,4 @@
-Routes
+Router
   .use(function(req, res, next) {
     console.log('1', req.url, req.parentURL, req.params);
     next();
@@ -7,13 +7,13 @@ Routes
     console.log('2', req.url, req.parentURL, req.params);
     next();
   })
-  .use('/:a', Routes.router()
-    .use('/:b', Routes.router()
+  .use('/:a', Router.router()
+    .use('/:b', Router.router()
       .use('/:c', function(req, res, next) {
         console.log('3', req.url, req.parentURL, req.params);
         next();
       })
-      .use('/:b', Routes.router()
+      .use('/:b', Router.router()
         .use('/:d', function(req, res, next) {
           console.log('4', req.url, req.parentURL, req.params);
           next();

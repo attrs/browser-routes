@@ -1,6 +1,6 @@
-var routes = require('browser-routes');
+var router = require('x-router');
 
-routes
+router
   .use(function(req, res, next) {
     console.log('1', req.url, req.parentURL, req.params);
     next();
@@ -9,13 +9,13 @@ routes
     console.log('2', req.url, req.parentURL, req.params);
     next();
   })
-  .use('/:a', routes.router()
-    .use('/:b', routes.router()
+  .use('/:a', router.router()
+    .use('/:b', router.router()
       .use('/:c', function(req, res, next) {
         console.log('3', req.url, req.parentURL, req.params);
         next();
       })
-      .use('/:b', routes.router()
+      .use('/:b', router.router()
         .use('/:d', function(req, res, next) {
           console.log('4', req.url, req.parentURL, req.params);
           next();

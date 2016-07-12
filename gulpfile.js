@@ -21,13 +21,13 @@ gulp.task('build.webpack', ['build.js.clean'], () => {
   var conf = require('./webpack.config.js');
   delete conf.output.path;
   
-  return gulp.src('routes.js')
+  return gulp.src('lib/index.js')
     .pipe(webpack(conf))
     .pipe(gulp.dest(dist));
 });
 
 gulp.task('build', ['build.webpack'], () => {
-  return gulp.src(path.join(dist, 'routes.js'))
+  return gulp.src(path.join(dist, 'x-router.js'))
     .pipe(header([
       '/*!',
       '* <%= pkg.name %> v<%= pkg.version %>',
