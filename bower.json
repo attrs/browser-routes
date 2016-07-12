@@ -15,11 +15,8 @@
     "bower_components",
     "gulpfile.js",
     "webpack.config.js",
-    "index.js",
     "test",
     "tests",
-    "examples",
-    "lib",
     "bin"
   ]
 }
