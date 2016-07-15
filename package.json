@@ -26,16 +26,22 @@
   },
   "files": [
     "package.json",
-    "routes.js",
     "lib",
     "dist",
     "LICENSE",
     "README.md"
   ],
   "keywords": [
+    "browser",
     "router",
     "routes",
-    "browser",
-    "browserify"
+    "routing",
+    "frontend",
+    "spa",
+    "browserify",
+    "pushstate",
+    "html5",
+    "browser-routes",
+    "browser-router"
   ]
 }
