@@ -1,5 +1,5 @@
 /*!
-* x-router v0.1.0
+* x-router v0.1.1
 * https://github.com/attrs/x-router
 *
 * Copyright attrs and others
@@ -238,11 +238,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var routes = [];
 	  var listeners = {};
 	  
-	  var body = function Router(req, res, next) {
+	  var body = function Router(req, res, onext) {
 	    if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
 	    
-	    next = next || function() {};
-	    
+	    /*
 	    //console.log('body', req.baseURL, req.url);
 	    var fns = [];
 	    routes.forEach(function(route) {
@@ -269,24 +268,50 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return (o.path || 'any') + '(' + (o.fn.name || 'unnamed') + ')';
 	    }));*/
 	    
-	    req.boot = boot;
-	    boot = false;
-	    
 	    var oParentURL = req.parentURL || '';
 	    var oURL = req.url;
 	    var oParams = req.params || {};
 	    var i = 0;
+	    var next = function(err) {
+	      req.url = oURL;
+	      req.parentURL = oParentURL;
+	      req.params = oParams;
+	      
+	      if( err ) return body.fire('error', {
+	        router: body,
+	        url: req.url,
+	        request: req,
+	        response: res,
+	        error: err
+	      }) && onext(err);
+	      
+	      body.fire('notfound', {
+	        router: body,
+	        url: req.url,
+	        request: req,
+	        response: res
+	      });
+	      
+	      onext();
+	    };
 	    var forward = function(err) {
+	      if( err ) return next(err);
+	      
+	      var route = routes[i++];
+	      if( !route ) return next();
+	      if( !boot && route.type === 'boot' ) return forward();
+	      
+	      var params = route.pattern.match(req.url);
+	      if( !params ) return forward();
+	      
+	      req.boot = boot;
 	      req.params = oParams;
 	      req.parentURL = oParentURL;
 	      req.parentURL = req.parentURL;
 	      req.url = oURL;
 	      
-	      var route = fns[i++];
-	      if( !route ) return next(err);
-	      
 	      var div = dividepath(route.path || '', req.url);
-	      req.params = mix(oParams, route.params);
+	      req.params = mix(oParams, params);
 	      
 	      if( route.fn.__router__ ) {
 	        req.url = div.sub;
@@ -309,6 +334,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    };
 	    forward();
+	    
+	    boot = false;
 	  };
 	  
 	  body.id = id;
@@ -421,7 +448,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	
 	  body.fire = function(type, detail) {
-	    if( type === 'error' && !(listeners[type] && isteners[type].length) )
+	    if( type === 'error' && !(listeners[type] && listeners[type].length) )
 	      return console.error('[x-router] error', detail);
 	    
 	    (listeners[type] || []).forEach(function(listener) {
@@ -444,6 +471,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var self = this;
 	  var baseURL = '';
 	  var router = Router('root'), request, response, hashroutes;
+	  var applicationScope = {};
 	  
 	  //console.info('baseURL', baseURL);
 	  
@@ -477,7 +505,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return normalize(url).fullpath;
 	  };
 	  
-	  var exec = this.exec = function(requrl) {
+	  var exec = this.exec = function(requrl, body) {
 	    //console.info('exec', requrl);
 	    var parsed = normalize(requrl);
 	    var hash = parsed.hash;
@@ -495,6 +523,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    hashroutes = [];
 	    request = {
+	      referer: null,    // TODO
 	      method: 'get',
 	      parsed: parsed,
 	      baseURL: baseURL,
@@ -502,13 +531,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	      url: url || '/',
 	      hashname: hash,
 	      query: parseQuery(query),
-	      params: {}
+	      params: {},
+	      body: body,
+	      app: applicationScope
 	    };
 	    
 	    //console.log('req', capture(request));
 	    
 	    response = {
-	      redirect: function(tourl) {
+	      redirect: function(tourl, saveHistory) {
 	        //console.info('redirect', url, request.parentURL, request.url, request);
 	        if( tourl.startsWith('#') ) {
 	          location.href = tourl;
@@ -522,7 +553,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	          requestURL: fullpath,
 	          url: url,
 	          request: request,
-	          response: response
+	          response: response,
+	          saveHistory: saveHistory
 	        });
 	        
 	        return this;
@@ -620,8 +652,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( !history.pushState ) return console.error('[x-router] unsupported \'history.pushState\'');
 	    
 	    var _pushState = history.pushState;
+	    var _replaceState = history.replaceState;
+	    
 	    history.pushState = function(state, title, url) {
 	      _pushState.apply(history, arguments);
+	      routes.exec(location.href);
+	    };
+	    history.replaceState = function(state, title, url) {
+	      _replaceState.apply(history, arguments);
 	      routes.exec(location.href);
 	    };
 	    
@@ -631,14 +669,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    routes.on('request', function(e) {
 	      if( normalize(location.href).fullpath !== normalize(e.detail.requestURL).fullpath ) {
-	        _pushState.call(history, null, null, e.detail.requestURL);
+	        _replaceState.call(history, null, null, e.detail.requestURL);
 	      }
 	    });
 	    
-	    routes.href = function(url) {
-	      if( !url || typeof url !== 'string' ) url = '/';
-	      if( url[0] === '#' ) location.href = url;
-	      else history.pushState(null, null, routes.normalize(url));
+	    routes.href = function(url, body) {
+	      if( typeof url === 'number' ) url = url + '';
+	      if( !url || typeof url !== 'string' ) return;
+	      if( url[0] === '#' ) {
+	        location.href = url;
+	      } else {
+	        _pushState.call(history, null, null, routes.normalize(url));
+	        routes.exec(location.href, body);
+	      }
 	    };
 	  } else if( mode === 'hash' ) {
 	    if( !('onhashchange' in window) ) return console.error('[x-router] unsupported \'onhashchange\'');
