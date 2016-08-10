@@ -237,42 +237,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var boot = true;
 	  var routes = [];
 	  var listeners = {};
+	  var error;
 	  
 	  var body = function Router(req, res, onext) {
 	    if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
-	    
-	    /*
-	    //console.log('body', req.baseURL, req.url);
-	    var fns = [];
-	    routes.forEach(function(route) {
-	      //console.log('[' + name + '] route', route);
-	      if( route.type === 'boot' ) {
-	        if( boot ) fns.push(route);
-	        return;
-	      }
-	      
-	      //console.log(route.path, req.url, route.pattern.match(req.url));
-	      var params = route.pattern.match(req.url);
-	      if( params ) return fns.push({
-	        type: route.type,
-	        fn: route.fn,
-	        path: route.path,
-	        pattern: route.pattern,
-	        params: params
-	      });
-	    });
-	    
-	    if( !fns.length ) return next();
-	    
-	    /*console.info('[' + name + '] fns', req.url, fns.map(function(o) {
-	      return (o.path || 'any') + '(' + (o.fn.name || 'unnamed') + ')';
-	    }));*/
+	    error = null;
+	    onext = onext || function() {};
 	    
 	    var oParentURL = req.parentURL || '';
 	    var oURL = req.url;
 	    var oParams = req.params || {};
-	    var i = 0;
+	    var i = 0, finished = false;
 	    var next = function(err) {
+	      if( finished ) return console.error('[x-router] next function twice called.');
+	      finished = true;
+	      
 	      req.url = oURL;
 	      req.parentURL = oParentURL;
 	      req.params = oParams;
@@ -298,10 +277,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( err ) return next(err);
 	      
 	      var route = routes[i++];
+	      //console.log(route, boot);
 	      if( !route ) return next();
 	      if( !boot && route.type === 'boot' ) return forward();
+	      //console.log(route, boot, route.pattern, route.pattern.match(req.url));
 	      
-	      var params = route.pattern.match(req.url);
+	      var params = route.pattern && route.pattern.match(req.url);
 	      if( !params ) return forward();
 	      
 	      req.boot = boot;
@@ -388,10 +369,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
-	  body.boot = function(fn) {
+	  body.boot = function(path, fn) {
+	    if( typeof path === 'function' ) fn = path, path = '/';
+	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
+	    if( typeof fn === 'string' ) fn = redirector(fn);
 	    if( typeof fn !== 'function' ) throw new TypeError('illegal type of router:' + typeof(fn));
+	    path = path ? path.trim() : '/';
+	    if( path[0] !== '/' ) path = '/' + path;
+	    
 	    routes.push({
 	      type: 'boot',
+	      path: path,
+	      pattern: patternize(path, true),
 	      fn: fn
 	    });
 	    return this;
@@ -448,8 +437,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	
 	  body.fire = function(type, detail) {
-	    if( type === 'error' && !(listeners[type] && listeners[type].length) )
-	      return console.error('[x-router] error', detail);
+	    if( type === 'error' ) {
+	      error = detail.error;
+	      
+	      if( !(listeners[type] && listeners[type].length) )
+	        return console.error('[x-router] error', detail);
+	    }
 	    
 	    (listeners[type] || []).forEach(function(listener) {
 	      listener.call(this, {
@@ -466,21 +459,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	function Routes(options) {
 	  if( !(this instanceof Routes) ) throw new Error('illegal state: \'new Routes()\' instead of \'Routes()\'');
 	  
-	  options = options || {};
-	  
 	  var self = this;
 	  var baseURL = '';
 	  var router = Router('root'), request, response, hashroutes;
 	  var applicationScope = {};
+	  var timeout;
 	  
-	  //console.info('baseURL', baseURL);
-	  
-	  this.config = function(key, value) {
-	    var o = options;
-	    if( arguments.length === 1 ) return o(key);
-	    if( value === null ) delete o[key];
-	    else o[key] = value;
-	    return this;
+	  this.timeout = function(msec) {
+	    if( typeof msec !== 'number' ) return console.warn('illegal timeout ' + msec);
+	    timeout = msec;
 	  };
 	  
 	  this.base = function(url) {
@@ -533,14 +520,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	      query: parseQuery(query),
 	      params: {},
 	      body: body,
-	      app: applicationScope
+	      session: applicationScope
 	    };
 	    
 	    //console.log('req', capture(request));
 	    
+	    var finished = false;
 	    response = {
 	      redirect: function(tourl, saveHistory) {
 	        //console.info('redirect', url, request.parentURL, request.url, request);
+	        finished = true;
+	        
 	        if( tourl.startsWith('#') ) {
 	          location.href = tourl;
 	        } else if( tourl.startsWith('/') ) {
@@ -561,8 +551,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	      },
 	      hash: function(hash, fn) {
 	        hashroutes.push({hash:hash, fn:fn});
+	      },
+	      end: function() {
+	        if( finished ) return console.warn('[x-router] request \'' + request.requestURL + '\' already finished.');
+	        finished = true;
+	        var err = router.error;
+	        //if( !err ) // TODO: exec hash
+	        
+	        router.fire('finish', {
+	          requestURL: fullpath,
+	          error: err,
+	          url: url,
+	          request: request,
+	          response: response
+	        });
 	      }
 	    };
+	    
+	    if( timeout > 0 ) {
+	      setTimeout(function() {
+	        if( finished ) return;
+	        console.warn('[x-router] router timeout(' + timeout + ')');
+	        response.end();
+	      }, timeout);
+	    }
 	    
 	    router.fire('request', {
 	      requestURL: fullpath,
@@ -571,15 +583,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      response: response
 	    });
 	    
-	    var self = this;
-	    router(request, response, function(err) {
-	      if( !err ) self.exechash();
-	    });
-	    return this;
-	  };
-	  
-	  this.exechash = function() {
-	    // TODO: hash 변경. 현재 request 의 hash 를 라우팅한다.
+	    router(request, response);
 	    return this;
 	  };
 	  
@@ -705,10 +709,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( !a.__routes_managed__ ) {
 	        a.__routes_managed__ = true;
 	        addEventListener(a, 'click', function(e) {
-	          var href = a.getAttribute('href');
+	          var pass = a.hasAttribute('pass');
+	          var href = a.getAttribute('data-href') || a.getAttribute('href');
 	          var p = href.indexOf(':'), s = href.indexOf('/');
 	          if( !href || (~p && p < s) ) return;
-	          e.preventDefault();
+	          if( !pass ) e.preventDefault();
 	          routes.href(href);
 	        });
 	      }
@@ -746,7 +751,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	  
 	  if( document.body ) bootup();
-	  else addEventListener(document, 'DOMContentLoaded', bootup);
+	  else addEventListener(document, 'DOMContentLoaded', function() {
+	    setTimeout(function() {
+	      bootup();
+	    }, 1);
+	  });
 	  
 	  window.route = routes.href;
 	})();
