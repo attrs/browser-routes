@@ -16,7 +16,7 @@ $ bower install x-router --save
 ```html
 <script src="/bower_components/x-router/dist/x-router.min.js"></script>
 <script>
-  Router.use(...);
+  Router().use(...);
 </script>
 ```
 
@@ -27,14 +27,14 @@ $ npm install x-router --save
 
 ```javascript
 var router = require('x-router');
-router.use(...);
+router().use(...);
 ```
 
 
 ## Usage
 ### Define Routing
 ```javascript
-Router
+Router()
   .use(function(req, res, next) {
     console.log('1', req.url, req.parentURL, req.params);
     next();
