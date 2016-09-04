@@ -1,5 +1,5 @@
 /*!
-* x-router v0.2.0
+* x-router v0.2.1
 * https://github.com/attrs/x-router
 *
 * Copyright attrs and others
