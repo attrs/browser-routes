@@ -1,5 +1,5 @@
 /*!
-* x-router v0.1.2
+* x-router v0.2.0
 * https://github.com/attrs/x-router
 *
 * Copyright attrs and others
@@ -78,9 +78,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	});
 	*/
 	
-	function normalize(url, doc) {
+	var a = document.createElement('a');
+	function normalize(url) {
 	  if( !url || typeof url !== 'string' ) throw new TypeError('illegal url');
-	  var a = (doc || document).createElement('a');
 	  a.href = url;
 	  return {
 	    href: a.href,
@@ -98,14 +98,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	function config(name, alt) {
 	  var root = document.head.querySelector('meta[name="' + name + '"][content]');
 	  return (root && root.getAttribute('content')) || alt;
-	}
-	
-	function current(mode) {
-	  if( mode === 'hash' ) {
-	    return location.hash;
-	  }
-	
-	  return location.href;
 	}
 	
 	function endsWith(str, word) {
@@ -230,17 +222,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return result;
 	}
 	
+	function EventObject(type, detail, src) {
+	  this.type = type;
+	  this.detail = detail || {};
+	  this.src = src;
+	}
+	/*
+	EventObject.prototype = {
+	  preventDefault: function() {
+	  },
+	  stopPropagation: function() {
+	  }
+	};*/
+	
+	
+	
 	
 	// factory Router
 	function Router(id) {
-	  id = id || 'unknwon';
+	  id = id || (Math.random() + '') || 'unknwon';
 	  var boot = true;
 	  var routes = [];
 	  var listeners = {};
 	  var error;
 	  
 	  var body = function Router(req, res, onext) {
-	    if( !req.url || req.url[0] !== '/' ) throw new Error('illegal url: ' + req.url);
+	    if( !req.url || req.url[0] !== '/' ) return console.error('[x-router] illegal state: url not defined in request: ', req.url);
 	    error = null;
 	    onext = onext || function() {};
 	    
@@ -248,16 +255,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var oURL = req.url;
 	    var oParams = req.params || {};
 	    var i = 0, finished = false;
+	    
 	    var next = function(err) {
-	      if( finished ) return console.error('[x-router] next function twice called.');
+	      if( finished ) return console.error('[x-router] next function twice called.', id, err);
 	      finished = true;
 	      
 	      req.url = oURL;
 	      req.parentURL = oParentURL;
 	      req.params = oParams;
+	      boot = false;
 	      
 	      if( err ) return body.fire('error', {
-	        router: body,
+	        href: req.href,
 	        url: req.url,
 	        request: req,
 	        response: res,
@@ -265,7 +274,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }) && onext(err);
 	      
 	      body.fire('notfound', {
-	        router: body,
+	        href: req.href,
 	        url: req.url,
 	        request: req,
 	        response: res
@@ -273,11 +282,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      
 	      onext();
 	    };
+	    
 	    var forward = function(err) {
 	      if( err ) return next(err);
 	      
 	      var route = routes[i++];
-	      //console.log(route, boot);
 	      if( !route ) return next();
 	      if( !boot && route.type === 'boot' ) return forward();
 	      //console.log(route, boot, route.pattern, route.pattern.match(req.url));
@@ -288,7 +297,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      req.boot = boot;
 	      req.params = oParams;
 	      req.parentURL = oParentURL;
-	      req.parentURL = req.parentURL;
 	      req.url = oURL;
 	      
 	      var div = dividepath(route.path || '', req.url);
@@ -313,10 +321,31 @@ return /******/ (function(modules) { // webpackBootstrap
 	      } else {
 	        route.fn.apply(body, [req, res, forward]);
 	      }
+	      
+	      body.fire('route', {
+	        routetype: route.type,
+	        config: route,
+	        parentURL: req.parentURL,
+	        url: req.url,
+	        href: path.join(req.baseURL, req.parentURL, req.url),
+	        fn: route.fn,
+	        params: params,
+	        boot: boot,
+	        request: req,
+	        response: res
+	      });
 	    };
 	    forward();
+	  };
+	  
+	  var adaptchild = function(fn) {
+	    if( fn.__router__ && fn.on && fn.fire ) {
+	      fn.on('route', function(e) {
+	        body.fire(e);
+	      });
+	    }
 	    
-	    boot = false;
+	    return fn;
 	  };
 	  
 	  body.id = id;
@@ -347,7 +376,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      type: 'use',
 	      path: path,
 	      pattern: patternize(path, true),
-	      fn: fn
+	      fn: adaptchild(fn)
 	    });
 	    return this;
 	  };
@@ -364,7 +393,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      type: 'get',
 	      path: path,
 	      pattern: patternize(path),
-	      fn: fn
+	      fn: adaptchild(fn)
 	    });
 	    return this;
 	  };
@@ -381,7 +410,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      type: 'boot',
 	      path: path,
 	      pattern: patternize(path, true),
-	      fn: fn
+	      fn: adaptchild(fn)
 	    });
 	    return this;
 	  };
@@ -437,120 +466,134 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	
 	  body.fire = function(type, detail) {
-	    if( type === 'error' ) {
-	      error = detail.error;
-	      
-	      if( !(listeners[type] && listeners[type].length) )
-	        return console.error('[x-router] error', detail);
+	    var event;
+	    if( typeof type === 'string' ) {
+	      event = new EventObject(type, detail, body);
+	      event.srcRouter = body;
+	    } else if( type instanceof EventObject ) {
+	      event = type;
+	    } else {
+	      return console.error('[x-router] illegal arguments, type is must be a string or event', type);
 	    }
 	    
-	    (listeners[type] || []).forEach(function(listener) {
-	      listener.call(this, {
-	        type: type,
-	        detail: detail || {}
-	      });
-	    });
+	    event.router = body;
+	    var action = function(listener) {
+	      listener.call(this, event);
+	    };
+	    
+	    (listeners['*'] || []).forEach(action);
+	    (listeners[event.type] || []).forEach(action);
+	    
+	    return this;
+	  };
+	  
+	  body.hasListener = function(type) {
+	    return listeners[type] && listeners[type].length ? true : false;
 	  };
 	  
 	  return body;
 	}
 	
-	// class Routes
-	function Routes(options) {
-	  if( !(this instanceof Routes) ) throw new Error('illegal state: \'new Routes()\' instead of \'Routes()\'');
-	  
-	  var self = this;
+	// class Application
+	function Application(options) {
 	  var baseURL = '';
-	  var router = Router('root'), request, response, hashroutes;
-	  var applicationScope = {};
-	  var timeout;
+	  var router = Router('root'), request, response, hashrouters;
+	  var session = {};
+	  var timeout, referer;
 	  
-	  this.timeout = function(msec) {
+	  Application.apps.push(router);
+	  
+	  router.timeout = function(msec) {
 	    if( typeof msec !== 'number' ) return console.warn('illegal timeout ' + msec);
 	    timeout = msec;
 	  };
 	  
-	  this.base = function(url) {
+	  router.base = function(url) {
 	    if( !arguments.length ) return baseURL;
 	    if( !url ) {
 	      baseURL = '';
 	      return this;
 	    }
 	    baseURL = path.dirname(path.resolve(url, 'index.html'));
-	    //console.log('baseURL', baseURL);
 	    return this;
 	  };
 	  
-	  this.router = function(name) {
+	  router.router = function(name) {
 	    return Router(name);
 	  };
 	  
-	  this.normalize = function(url) {
+	  router.fullhref = function(url) {
 	    url = url.trim();
-	    if( !url ) return baseURL;
-	    if( url[0] === '/' ) return baseURL + url;
-	    return normalize(url).fullpath;
+	    if( !url ) url = baseURL;
+	    else if( url[0] === '/' ) url = baseURL + url;
+	    else if( !request ) url = baseURL + '/' + url;
+	    else if( request.href ) url = path.dirname(request.href) + '/' + url;
+	    else console.error('cannot resolve href', url);
+	    
+	    return normalize(url.split('//').join('/')).fullpath;
 	  };
 	  
-	  var exec = this.exec = function(requrl, body) {
-	    //console.info('exec', requrl);
-	    var parsed = normalize(requrl);
-	    var hash = parsed.hash;
-	    var query = parsed.search;
+	  router.href = function(href, body, options) {
+	    if( typeof body === 'boolean' ) options = {writestate:body}, body = null;
+	    href = href || '';
+	    
+	    var parsed = normalize(router.fullhref(href));
 	    var url = parsed.pathname;
-	    var fullpath = parsed.fullpath;
-	    if( request && request.requestURL && fullpath === request.requestURL ) return;
+	    if( url.indexOf(baseURL) !== 0 )
+	      return console.error('given href \'' + url + '\' is not a sub url of base url \'' + baseURL + '\'');
+	    url = url.substring(baseURL.length);
 	    
-	    //console.log('exec', baseURL, requrl, url, url.indexOf(baseURL), parsed);
-	    if( baseURL && url.startsWith(baseURL) ) {
-	      url = url.substring(baseURL.length);
-	    } else if( baseURL ){
-	      return console.error('given url is not a sub url of base url \'' + baseURL + '\'');
-	    }
+	    //console.log('href', arguments[0], url);
 	    
-	    hashroutes = [];
-	    request = {
-	      referer: null,    // TODO
+	    if( request && request.href === parsed.fullpath ) return;
+	    if( typeof options === 'boolean' ) options = {writestate:options};
+	    if( !options || typeof options !== 'object' ) options = {};
+	    
+	    hashrouters = [];
+	    request = router.request = {
+	      app: router,
+	      referer: referer,
 	      method: 'get',
 	      parsed: parsed,
 	      baseURL: baseURL,
-	      requestURL: fullpath,
+	      href: parsed.fullpath,
 	      url: url || '/',
-	      hashname: hash,
-	      query: parseQuery(query),
+	      options: options,
+	      hashname: parsed.hash,
+	      query: parseQuery(parsed.search),
 	      params: {},
-	      body: body,
-	      session: applicationScope
+	      body: body || {},
+	      session: session
 	    };
 	    
 	    //console.log('req', capture(request));
 	    
 	    var finished = false;
 	    response = {
-	      redirect: function(tourl, saveHistory) {
-	        //console.info('redirect', url, request.parentURL, request.url, request);
+	      redirect: function(to, body, options) {
 	        finished = true;
+	        options = options || {};
+	        options.redirect = true;
+	        body = body || request.body || {};
 	        
-	        if( tourl.startsWith('#') ) {
-	          location.href = tourl;
-	        } else if( tourl.startsWith('/') ) {
-	          exec(path.join(baseURL, tourl));
-	        } else {
-	          exec(path.join(baseURL, request.parentURL, request.url, tourl));
+	        if( to[0] !== '#' && to[0] !== '/' ) {
+	          to = path.join(request.parentURL, request.url, to);
 	        }
 	        
 	        router.fire('redirect', {
-	          requestURL: fullpath,
-	          url: url,
+	          options: options,
+	          referer: (referer = normalize(path.join(request.baseURL, request.url)).href),
+	          to: to,
+	          requested: arguments[0],
 	          request: request,
-	          response: response,
-	          saveHistory: saveHistory
+	          response: response
 	        });
 	        
+	        router.href(to, body, options);
 	        return this;
 	      },
 	      hash: function(hash, fn) {
-	        hashroutes.push({hash:hash, fn:fn});
+	        hashrouters.push({hash:hash, fn:fn});
 	      },
 	      end: function() {
 	        if( finished ) return console.warn('[x-router] request \'' + request.requestURL + '\' already finished.');
@@ -558,10 +601,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var err = router.error;
 	        //if( !err ) // TODO: exec hash
 	        
-	        router.fire('finish', {
-	          requestURL: fullpath,
-	          error: err,
+	        router.fire('end', {
+	          href: parsed.fullpath,
 	          url: url,
+	          error: err,
 	          request: request,
 	          response: response
 	        });
@@ -577,156 +620,259 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    
 	    router.fire('request', {
-	      requestURL: fullpath,
+	      href: parsed.fullpath,
 	      url: url,
 	      request: request,
 	      response: response
 	    });
 	    
-	    router(request, response);
+	    if( options.writestate !== false && options.replacestate !== true && options.redirect !== true ) {
+	      referer = parsed.fullpath;
+	    }
+	    
+	    router(request, response, function(err) {
+	      if( err ) return router.fire('error', {
+	        href: parsed.fullpath,
+	        url: url,
+	        request: request,
+	        response: response,
+	        error: err
+	      });
+	      
+	      router.fire('notfound', {
+	        href: parsed.fullpath,
+	        url: url,
+	        request: request,
+	        response: response
+	      });
+	    });
 	    return this;
 	  };
 	  
-	  // --- wire to router
-	  this.use = function(path, fn) {
-	    router.use.apply(router, arguments);
-	    return this;
-	  };
+	  router.on('*', function(e) {
+	    e.app = router;
+	    Application.fire(e);
+	  });
 	  
-	  this.boot = function(fn) {
-	    router.boot(fn);
-	    return this;
-	  };
-	  
-	  this.get = function(path, fn) {
-	    router.get(path, fn);
-	    return this;
-	  };
-	  
-	  this.notfound = function(fn) {
-	    router.notfound(fn);
-	    return this;
-	  };
-	  
-	  this.error = function(fn) {
-	    router.error(fn);
-	    return this;
-	  };
-	  
-	  this.drop = function(fn) {
-	    router.drop(fn);
-	    return this;
-	  };
-	  
-	  this.exists = function(path) {
-	    return router.exists(path);
-	  };
-	  
-	  this.clear = function() {
-	    router.clear();
-	    return this;
-	  };
-	  
-	  this.on = function(type, fn) {
-	    router.on(type, fn);
-	    return this;
-	  };
-	  
-	  this.once = function(type, fn) {
-	    router.once(type, fn);
-	    return this;
-	  };
-	  
-	  this.off = function(type, fn) {
-	    router.off(type, fn);
-	    return this;
-	  };
-	}
+	  return router;
+	};
 	
-	var routes = new Routes();
-	routes.Routes = Routes;
-	routes.Router = Router;
+	// initialize context feature
+	(function() {
+	  var currentapp, apps = [], listeners = {};
+	  
+	  var current = function(app) {
+	    if( !arguments.length ) return currentapp || apps[0];
+	    if( !~apps.indexOf(app) ) return console.error('[x-router] not defined app', app);
+	    currentapp = app;
+	    return this;
+	  };
+	  
+	  var href = function() {
+	    var app = current();
+	    if( !app ) return console.error('[x-router] not yet initialized');
+	    app.href.apply(currentapp, arguments);
+	  };
+	  
+	  var on = function(type, fn) {
+	    listeners[type] = listeners[type] || [];
+	    listeners[type].push(fn);
+	    return this;
+	  };
+	  
+	  var once = function(type, fn) {
+	    var wrap = function(e) {
+	      off(type, wrap);
+	      return fn.call(Application, e);
+	    };
+	    on(type, wrap);
+	    return this;
+	  };
+	
+	  var off = function(type, fn) {
+	    var fns = listeners[type];
+	    if( fns )
+	      for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
+	    
+	    return this;
+	  };
+	
+	  var fire = function(event) {
+	    var action = function(listener) {
+	      listener.call(this, event);
+	    };
+	    
+	    (listeners['*'] || []).forEach(action);
+	    (listeners[event.type] || []).forEach(action);
+	    
+	    return this;
+	  };
+	  
+	  Application.apps = apps;
+	  Application.Router = Router;
+	  Application.current = current;
+	  Application.href = href;
+	  Application.on = on;
+	  Application.once = once;
+	  Application.off = off;
+	  Application.fire = fire;
+	  
+	  // @deprecated
+	  //Application.router = Router;
+	})();
+	
+	module.exports = Application;
 	
 	// instantiate main routes && trigger
 	(function() {
-	  //var always = config('routes.always') === 'true' ? true : true;
-	  var mode = config('routes.mode') || (history.pushState ? 'pushstate' : 'hash');
+	  var mode = config('x-router.mode') || (history.pushState ? 'pushstate' : 'hash');
+	  if( !~['pushstate', 'hash', 'none'].indexOf(mode) ) {
+	    console.error('[x-router] unsupported mode: ' + mode);
+	    mode = history.pushState ? 'pushstate' : 'hash';
+	  }
+	  
+	  var app = function() {
+	    return Application.current() || {
+	      href:function() {
+	        console.error('[x-router] not yet initialized');
+	      }
+	    };
+	  };
+	  
+	  var validatelocation = function(href) {
+	    var base = app().base() || '';
+	    href = normalize(href || location.href).fullpath;
+	    if( !href.indexOf(base) ) return href.substring(base.length);
+	    return href;
+	  }
 	  
 	  if( mode === 'pushstate' ) {
-	    if( !history.pushState ) return console.error('[x-router] unsupported \'history.pushState\'');
+	    if( !history.pushState ) return console.error('[x-router] browser does not support \'history.pushState\'');
 	    
-	    var _pushState = history.pushState;
-	    var _replaceState = history.replaceState;
+	    var pushState = history.pushState;
+	    var replaceState = history.replaceState;
 	    
-	    history.pushState = function(state, title, url) {
-	      _pushState.apply(history, arguments);
-	      routes.exec(location.href);
+	    history.pushState = function(state, title, href) {
+	      pushState.apply(history, arguments);
+	      app().href(validatelocation(), state);
 	    };
-	    history.replaceState = function(state, title, url) {
-	      _replaceState.apply(history, arguments);
-	      routes.exec(location.href);
+	    
+	    history.replaceState = function(state, title, href) {
+	      replaceState.apply(history, arguments);
+	      app().href(validatelocation(), state, {
+	        replacestate: true
+	      });
 	    };
 	    
 	    window.onpopstate = function(e) {
-	      routes.exec(location.href);
+	      app().href(validatelocation(), e.state, {writestate:false});
 	    };
 	    
-	    routes.on('request', function(e) {
-	      if( normalize(location.href).fullpath !== normalize(e.detail.requestURL).fullpath ) {
-	        _replaceState.call(history, null, null, e.detail.requestURL);
-	      }
+	    var push = function(href, body) {
+	      pushState.call(history, body, null, href);
+	    };
+	    
+	    var replace = function(href, body) {
+	      replaceState.call(history, body, null, href);
+	    };
+	    
+	    Application.on('request', function(e) {
+	      if( app() !== e.app ) return;
+	      var href = e.detail.href;
+	      var body = e.detail.request.body;
+	      var o = e.detail.request.options;
+	      if( o.writestate === false ) return;
+	      if( o.replacestate || o.redirect ) replace(href, body);
+	      else push(href, body);
 	    });
 	    
-	    routes.href = function(url, body) {
-	      if( typeof url === 'number' ) url = url + '';
-	      if( !url || typeof url !== 'string' ) return;
-	      if( url[0] === '#' ) {
-	        location.href = url;
-	      } else {
-	        _pushState.call(history, null, null, routes.normalize(url));
-	        routes.exec(location.href, body);
-	      }
-	    };
+	    Application.on('end', function(e) {
+	      if( app() !== e.app ) return;
+	      var href = e.detail.href;
+	      var body = e.detail.request.body;
+	      var o = e.detail.request.options;
+	      if( o.writestate === false ) return;
+	      replace(href, body);
+	    });
+	    
+	    Application.on('route', function(e) {
+	      if( app() !== e.app ) return;
+	      //console.info('route', e.detail.href);
+	      
+	      /*var href = e.detail.href;
+	      var body = e.detail.request.body;
+	      var o = e.detail.request.options;
+	      if( o.writestate === false ) return;
+	      replace(href, body);*/
+	    });
 	  } else if( mode === 'hash' ) {
-	    if( !('onhashchange' in window) ) return console.error('[x-router] unsupported \'onhashchange\'');
-	    
 	    addEventListener(window, 'hashchange', function() {
-	      routes.exec(location.hash);
+	      //console.log('hashchange', location.hash);
+	      if( location.hash.length >= 1 ) app().href(location.hash.substring(1));
 	    });
 	    
-	    routes.on('redirect', function(e) {
-	      location.href = '#' + e.detail.url;
-	    });
-	    
-	    routes.href = function(url) {
-	      location.href = '#' + routes.normalize(url);
+	    var replace = function(url, body) {
+	      location.replace('#' + url);
 	    };
+	    
+	    var push = function(url, body) {
+	      location.assign('#' + url);
+	    };
+	    
+	    Application.on('request', function(e) {
+	      if( app() !== e.app ) return;
+	      var url = e.detail.url;
+	      var body = e.detail.request.body;
+	      var o = e.detail.request.options;
+	      if( o.writestate === false ) return;
+	      if( o.replacestate || o.redirect ) replace(url, body);
+	      else push(url, body);
+	    });
+	    
+	    Application.on('end', function(e) {
+	      if( app() !== e.app ) return;
+	      var url = e.detail.url;
+	      var body = e.detail.request.body;
+	      var o = e.detail.request.options;
+	      if( o.writestate === false ) return;
+	      replace(url, body);
+	    });
 	  }
+	  
 	  
 	  var observer;
 	  function bootup() {
 	    function routify(a) {
-	      if( !a.__routes_managed__ ) {
-	        a.__routes_managed__ = true;
+	      if( !a.__xrouter__ ) {
+	        a.__xrouter__ = true;
+	        
+	        a.onroute = null;
+	        a.onrouteresponse = null;
+	        a.onrouterequest = null;
+	        
 	        addEventListener(a, 'click', function(e) {
-	          var pass = a.hasAttribute('pass');
+	          var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
 	          var href = a.getAttribute('data-href') || a.getAttribute('href');
 	          var p = href.indexOf(':'), s = href.indexOf('/');
 	          if( !href || (~p && p < s) ) return;
-	          if( !pass ) e.preventDefault();
-	          routes.href(href);
+	          e.preventDefault();
+	          app().href(href, null, {
+	            writestate: ghost ? false : true
+	          });
 	        });
 	      }
 	      return this;
 	    }
-	  
+	    
 	    function scan() {
 	      [].forEach.call(document.querySelectorAll('[route], [data-route], [routes], [data-routes]'), routify);
 	      return this;
 	    }
 	    
 	    scan();
-	    routes.exec(location.href);
+	    
+	    if( mode === 'pushstate' ) app().href(validatelocation());
+	    else if( mode === 'hash' ) app().href(location.hash.substring(1));
 	    
 	    // observe anchor tags
 	    if( window.MutationObserver && config('observe') !== 'false' ) {
@@ -742,7 +888,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          });
 	        });
 	      });
-	    
+	      
 	      observer.observe(document.body, {
 	        childList: true,
 	        subtree: true
@@ -757,11 +903,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }, 1);
 	  });
 	  
-	  window.route = routes.href;
+	  window.route = app().href;
 	})();
-	
-	module.exports = routes;
-	
 
 
 /***/ },
