@@ -27,7 +27,15 @@ $ npm install x-router --save
 
 ```javascript
 var router = require('x-router');
-router().use(...);
+router().use(
+  router.Router()
+  .use(function(req, res, next) {
+    next();
+  })
+  .get('/', function(req, res, next) {
+    console.log('hello');
+  })
+);
 ```
 
 
@@ -43,13 +51,13 @@ Router()
     console.log('2', req.url, req.parentURL, req.params);
     next();
   })
-  .use('/:a', Router.router()
-    .use('/:b', Router.router()
+  .use('/:a', Router.Router()
+    .use('/:b', Router.Router()
       .get('/:c', function(req, res, next) {
         console.log('3', req.url, req.parentURL, req.params);
         next();
       })
-      .use('/:b', Router.router()
+      .use('/:b', Router.Router()
         .get('/:d', function(req, res, next) {
           console.log('4', req.url, req.parentURL, req.params);
           next();
@@ -59,12 +67,22 @@ Router()
   );
 ```
 
+### Configuration
+> support both `pushstate` and `hash`, If you have not set up any value automatically using `pushstate`.
+
+```html
+<meta name="x-router.mode" content="pushstate">
+or
+<meta name="x-router.mode" content="hash">
+```
+
 ### In HTML
 > use `route` attribute or `javascript:route(...)`
 
 ```html
 <a href="/a/b/c/d/e" route>/a/b/c/d/e</a>
-<a href="javascript:routes('/a/b/c/d');">route('/a/b/c/d')</a>
+<a href="/a/b/c/d/e" route ghost>/a/b/c/d/e</a>
+<a href="javascript:route('/a/b/c/d');">route('/a/b/c/d')</a>
 ```
 
 
