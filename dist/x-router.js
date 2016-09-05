@@ -81,19 +81,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	var a = document.createElement('a');
 	function normalize(url) {
 	  if( !url || typeof url !== 'string' ) throw new TypeError('illegal url');
-	  a.href = url;
+	  
+	  a.href = url || '';
+	  var fullpath = a.href;
+	  fullpath = fullpath.substring(fullpath.indexOf('://') + 3);
+	  if( !~fullpath.indexOf('/') ) fullpath = '/';
+	  else fullpath = fullpath.substring(fullpath.indexOf('/'));
+	  
+	  var pathname = fullpath;
+	  pathname = ~pathname.indexOf('?') ? pathname.substring(0, pathname.indexOf('?')) : pathname;
+	  pathname = ~pathname.indexOf('#') ? pathname.substring(0, pathname.indexOf('#')) : pathname;
+	  
 	  return {
 	    href: a.href,
 	    protocol: a.protocol,
 	    hostname: a.hostname,
 	    port: a.port,
-	    pathname: a.pathname,
-	    fullpath: a.pathname + (a.search ? a.search : '') + (a.hash ? a.hash : ''),
+	    pathname: pathname,
+	    fullpath: pathname + (a.search ? a.search : '') + (a.hash ? a.hash : ''),
 	    search: a.search,
 	    hash: a.hash,
 	    host: a.host
 	  };
 	}
+	
 	
 	function config(name, alt) {
 	  var root = document.head.querySelector('meta[name="' + name + '"][content]');
@@ -497,7 +508,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	// class Application
 	function Application(options) {
 	  var baseURL = '';
-	  var router = Router('root'), request, response, hashrouters;
+	  var router = Router('root'), hashrouter, request, response;
 	  var session = {};
 	  var timeout, referer;
 	  
@@ -533,6 +544,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return normalize(url.split('//').join('/')).fullpath;
 	  };
 	  
+	  router.hash = function(hash, next) {
+	    request.hash = hash || '';
+	    hashrouter(request, response, next);
+	    return this;
+	  };
+	  
 	  router.href = function(href, body, options) {
 	    if( typeof body === 'boolean' ) options = {writestate:body}, body = null;
 	    href = href || '';
@@ -549,7 +566,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof options === 'boolean' ) options = {writestate:options};
 	    if( !options || typeof options !== 'object' ) options = {};
 	    
-	    hashrouters = [];
+	    hashrouter = Router('hash');
 	    request = router.request = {
 	      app: router,
 	      referer: referer,
@@ -569,7 +586,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //console.log('req', capture(request));
 	    
 	    var finished = false;
-	    response = {
+	    response = router.response = {
 	      redirect: function(to, body, options) {
 	        finished = true;
 	        options = options || {};
@@ -593,21 +610,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return this;
 	      },
 	      hash: function(hash, fn) {
-	        hashrouters.push({hash:hash, fn:fn});
+	        hashrouter.get('#' + hash, fn);
+	        return this;
 	      },
-	      end: function() {
-	        if( finished ) return console.warn('[x-router] request \'' + request.requestURL + '\' already finished.');
+	      exechash: function(hash, done) {
+	        router.exechash(req.hash, done);
+	        return this;
+	      },
+	      end: function(exechash) {
+	        if( finished ) return console.warn('[x-router] request \'' + request.href + '\' already finished.');
 	        finished = true;
-	        var err = router.error;
-	        //if( !err ) // TODO: exec hash
 	        
-	        router.fire('end', {
-	          href: parsed.fullpath,
-	          url: url,
-	          error: err,
-	          request: request,
-	          response: response
-	        });
+	        var fire = function(err) {
+	          router.fire('end', {
+	            href: parsed.fullpath,
+	            url: url,
+	            error: err,
+	            request: request,
+	            response: response
+	          });
+	        };
+	        
+	        if( !err && exechash !== false ) router.exechash(req.hash, fire);
+	        else fire(router.error);
 	      }
 	    };
 	    
@@ -839,6 +864,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    });
 	  }
 	  
+	  var ie = (function(){
+	    var undef,
+	        v = 3,
+	        div = document.createElement('div'),
+	        all = div.getElementsByTagName('i');
+	        
+	    while(div.innerHTML = '<!--[if gt IE ' + (++v) + ']><i></i><![endif]-->',all[0]);
+	    return v > 4 ? v : undef;
+	  }());
 	  
 	  var observer;
 	  function bootup() {
@@ -850,22 +884,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	        a.onrouteresponse = null;
 	        a.onrouterequest = null;
 	        
-	        addEventListener(a, 'click', function(e) {
-	          var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
-	          var href = a.getAttribute('data-href') || a.getAttribute('href');
-	          var p = href.indexOf(':'), s = href.indexOf('/');
-	          if( !href || (~p && p < s) ) return;
-	          e.preventDefault();
-	          app().href(href, null, {
-	            writestate: ghost ? false : true
-	          });
-	        });
+	        if( ie <= 8 ) {
+	          a.onclick = function(e) {
+	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
+	            var href = a.getAttribute('data-href') || a.getAttribute('href');
+	            var p = href.indexOf(':'), s = href.indexOf('/');
+	            
+	            if( !href || (~p && p < s) ) return;
+	            
+	            app().href(href, null, {
+	              writestate: ghost ? false : true
+	            });
+	            
+	            return false;
+	          };
+	        } else {
+	          a.onclick = function(e) {
+	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
+	            var href = a.getAttribute('data-href') || a.getAttribute('href');
+	            var p = href.indexOf(':'), s = href.indexOf('/');
+	            
+	            if( !href || (~p && p < s) ) return;
+	            e.preventDefault();
+	            
+	            app().href(href, null, {
+	              writestate: ghost ? false : true
+	            });
+	          };
+	        } 
 	      }
 	      return this;
 	    }
 	    
+	    var routeselector = '*[route], *[data-route], *[routes], *[data-routes]';
 	    function scan() {
-	      [].forEach.call(document.querySelectorAll('[route], [data-route], [routes], [data-routes]'), routify);
+	      [].forEach.call(document.querySelectorAll(routeselector), routify);
 	      return this;
 	    }
 	    
@@ -883,7 +936,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if( node.nodeType === 1 ) {
 	              if( node.hasAttribute('route') || node.hasAttribute('routes') ) routify(node);
 	              if( node.hasAttribute('data-route') || node.hasAttribute('data-routes') ) routify(node);
-	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll('[route], [data-route], [routes], [data-routes]'), routify);
+	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll(routeselector), routify);
 	            }
 	          });
 	        });
@@ -897,13 +950,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	  
 	  if( document.body ) bootup();
-	  else addEventListener(document, 'DOMContentLoaded', function() {
-	    setTimeout(function() {
-	      bootup();
-	    }, 1);
-	  });
+	  else {
+	    if( document.addEventListener ) {
+	      document.addEventListener('DOMContentLoaded', function() {
+	        setTimeout(function() {
+	          bootup();
+	        }, 1);
+	      });
+	    } else if( document.attachEvent ) {
+	      document.attachEvent("onreadystatechange", function () {
+	        if(document.readyState === "complete")
+	          setTimeout(function() {
+	            bootup();
+	          }, 1);
+	      });
+	    }
+	  };
 	  
-	  window.route = app().href;
+	  window.route = function() {
+	    var current = app();
+	    current.href.apply(current, arguments);
+	  };
 	})();
 
 

@@ -1,4 +1,4 @@
-Router
+Router()
   .use(function(req, res, next) {
     console.log('1', req.url, req.parentURL, req.params);
     next();
