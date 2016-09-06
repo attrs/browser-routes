@@ -80,7 +80,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	var a = document.createElement('a');
 	function normalize(url) {
-	  if( !url || typeof url !== 'string' ) throw new TypeError('illegal url');
+	  if( typeof url !== 'string' ) throw new TypeError('illegal url');
 	  
 	  a.href = url || '';
 	  var fullpath = a.href;
@@ -107,7 +107,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	
 	function config(name, alt) {
-	  var root = document.head.querySelector('meta[name="' + name + '"][content]');
+	  var root = document.head.querySelector('meta[name=\"' + name + '\"][content]');
 	  return (root && root.getAttribute('content')) || alt;
 	}
 	
@@ -122,7 +122,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var match,
 	      pl     = /\+/g,
 	      search = /([^&=]+)=?([^&]*)/g,
-	      decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); };
+	      decode = function (s) { return decodeURIComponent(s.replace(pl, ' ')); };
 	      
 	  var params = {};
 	  while (match = search.exec(query)) {
@@ -928,24 +928,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	    else if( mode === 'hash' ) app().href(location.hash.substring(1));
 	    
 	    // observe anchor tags
-	    if( window.MutationObserver && config('observe') !== 'false' ) {
-	      if( observer ) observer.disconnect();
-	      observer = new MutationObserver(function(mutations) {
-	        mutations.forEach(function(mutation) {
-	          [].forEach.call(mutation.addedNodes, function(node) {
-	            if( node.nodeType === 1 ) {
-	              if( node.hasAttribute('route') || node.hasAttribute('routes') ) routify(node);
-	              if( node.hasAttribute('data-route') || node.hasAttribute('data-routes') ) routify(node);
-	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll(routeselector), routify);
-	            }
+	    if( config('observe') !== 'false' ) {
+	      if( window.MutationObserver ) {
+	        if( observer ) observer.disconnect();
+	        observer = new MutationObserver(function(mutations) {
+	          mutations.forEach(function(mutation) {
+	            [].forEach.call(mutation.addedNodes, function(node) {
+	              if( node.nodeType === 1 ) {
+	                if( node.hasAttribute('route') || node.hasAttribute('routes') ) routify(node);
+	                if( node.hasAttribute('data-route') || node.hasAttribute('data-routes') ) routify(node);
+	                if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll(routeselector), routify);
+	              }
+	            });
 	          });
 	        });
-	      });
 	      
-	      observer.observe(document.body, {
-	        childList: true,
-	        subtree: true
-	      });
+	        observer.observe(document.body, {
+	          childList: true,
+	          subtree: true
+	        });
+	      } else {
+	        window.setInterval(scan, 1000);
+	      }
 	    }
 	  }
 	  
@@ -953,16 +957,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	  else {
 	    if( document.addEventListener ) {
 	      document.addEventListener('DOMContentLoaded', function() {
-	        setTimeout(function() {
-	          bootup();
-	        }, 1);
+	        window.setTimeout(bootup,1);
 	      });
 	    } else if( document.attachEvent ) {
-	      document.attachEvent("onreadystatechange", function () {
-	        if(document.readyState === "complete")
-	          setTimeout(function() {
-	            bootup();
-	          }, 1);
+	      document.attachEvent('onreadystatechange', function () {
+	        if( document.readyState === 'complete' ) window.setTimeout(bootup,1);
 	      });
 	    }
 	  };

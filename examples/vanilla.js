@@ -7,13 +7,13 @@ Router()
     console.log('2', req.url, req.parentURL, req.params);
     next();
   })
-  .use('/:a', Router.router()
-    .use('/:b', Router.router()
+  .use('/:a', Router.Router()
+    .use('/:b', Router.Router()
       .use('/:c', function(req, res, next) {
         console.log('3', req.url, req.parentURL, req.params);
         next();
       })
-      .use('/:b', Router.router()
+      .use('/:b', Router.Router()
         .use('/:d', function(req, res, next) {
           console.log('4', req.url, req.parentURL, req.params);
           next();
