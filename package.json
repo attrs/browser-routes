@@ -32,16 +32,12 @@
     "README.md"
   ],
   "keywords": [
-    "browser",
+    "browser router",
+    "frontend router",
     "router",
-    "routes",
-    "routing",
-    "frontend",
     "spa",
-    "browserify",
-    "pushstate",
-    "html5",
-    "browser-routes",
-    "browser-router"
+    "single page application",
+    "webmodules",
+    "pushstate"
   ]
 }
