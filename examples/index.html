@@ -10,7 +10,67 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/es5-shim/4.5.7/es5-shim.min.js"></script>
   <![endif]-->
   
-  <script type="text/commonjs" data-src="cjs.js"></script>
+  <script type="text/commonjs">
+    var router = require('x-router');
+    
+    router()
+      .engine('html', function(src, options, done) {
+        console.log('render!', src, options);
+      })
+      .set('view engine', 'html')
+      .set('views', 'http://127.0.0.1/a/b/c/')
+      .use(function(req, res, next) {
+        next();
+      })
+      .get('/', function(req, res, next) {
+        res.render('partial.html', '#target', function(err, result) {
+          if( err ) return next(err);
+          console.log('rendered', result);
+        });
+      })
+      .use('/:a', router.Router()
+        .use('/:b', router.Router()
+          .get('/:c', function(req, res, next) {
+            res.render('partial.html', '#target', function(err, result) {
+              if( err ) return next(err);
+              console.log('rendered', result);
+            });
+          })
+          .use('/:b', router.Router()
+            .get('/:d', function(req, res, next) {
+              res.render('partial.html', '#target', function(err, result) {
+                if( err ) return next(err);
+                console.log('rendered', result);
+              });
+            })
+          )
+        )
+        .get('/:b', function(req, res, next) {
+          res.render('partial.html', '#target', function(err, result) {
+            if( err ) return next(err);
+            console.log('rendered', result);
+          });
+        })
+        .get('/:b/:c', function(req, res, next) {
+          res.render('partial.html', '#target', function(err, result) {
+            if( err ) return next(err);
+            console.log('rendered', result);
+          });
+        })
+        .get('/:b', function(req, res, next) {
+          res.render('partial.html', '#target', function(err, result) {
+            if( err ) return next(err);
+            console.log('rendered', result);
+          });
+        })
+      )
+      .on('error', function(e) {
+        console.error('error occured', e.detail);
+      })
+      .on('notfound', function(e) {
+        console.error('notfound', e.detail);
+      });
+  </script>
   <script src="/web_modules/webmodules/runtime.js"></script>
 </head>
 
@@ -24,5 +84,7 @@
   
   <a href="javascript:route('/a/b/c/d');">route('/a/b/c/d')</a>
   <a href="javascript:route('/a/b/c/d/e');" route>route('/a/b/c/d/e')</a>
+  
+  <div id="target"></div>
 </body>
 </html>
