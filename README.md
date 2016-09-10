@@ -26,8 +26,8 @@ $ npm install x-router --save
 ```
 
 ```javascript
-var router = require('x-router');
-router().use(
+var xrouter = require('x-router');
+xrouter().use(
   router.Router()
   .use(function(req, res, next) {
     next();
@@ -42,7 +42,7 @@ router().use(
 ## Usage
 ### Define Routing
 ```javascript
-Router()
+xrouter()
   .use(function(req, res, next) {
     console.log('1', req.url, req.parentURL, req.params);
     next();
@@ -51,38 +51,57 @@ Router()
     console.log('2', req.url, req.parentURL, req.params);
     next();
   })
-  .use('/:a', Router.Router()
-    .use('/:b', Router.Router()
+  .get('/', function(req, res, next) {
+    console.log('index');
+  })
+  .use('/:a', xrouter.Router()
+    .use('/:b', xrouter.Router()
       .get('/:c', function(req, res, next) {
         console.log('3', req.url, req.parentURL, req.params);
-        next();
       })
-      .use('/:b', Router.Router()
+      .use('/:b', xrouter.Router()
         .get('/:d', function(req, res, next) {
           console.log('4', req.url, req.parentURL, req.params);
-          next();
         })
       )
     )
-  );
+    .use('/:b', function(req, res, next) {
+      console.log('5', req.url, req.parentURL, req.params);
+      next();
+    })
+    .get('/:b/:c', function(req, res, next) {
+      console.log('6', req.url, req.parentURL, req.params);
+    })
+    .get('/:b', function(req, res, next) {
+      console.log('7', req.url, req.parentURL, req.params);
+    })
+  )
+  .on('error', function(e) {
+    console.error('error', e.detail);
+  })
+  .on('notfound', function(e) {
+    console.error('notfound', e.detail.url);
+  });
+
+
+
+
 ```
 
 ### Configuration
 > support both `pushstate` and `hash`, If you have not set up any value automatically using `pushstate`.
 
 ```html
-<meta name="x-router.mode" content="pushstate">
-or
-<meta name="x-router.mode" content="hash">
+<meta name="xrouter.mode" content="pushstate | hash">
+<meta name="xrouter.debug" content="false | true">
+<meta name="xrouter.observe" content="true | false">
 ```
 
 ### In HTML
-> use `route` attribute or `javascript:route(...)`
-
 ```html
-<a href="/a/b/c/d/e" route>/a/b/c/d/e</a>
-<a href="/a/b/c/d/e" route ghost>/a/b/c/d/e</a>
-<a href="javascript:route('/a/b/c/d');">route('/a/b/c/d')</a>
+<a href="/a/b/c/d/e" route>/a/b</a>
+<a href="/a/b/c/d/e" route ghost>/a/c</a>
+<a href="javascript:xrouter.href('/a/b/c/d');">xrouter.href('/a/b/c/d')</a>
 ```
 
 
