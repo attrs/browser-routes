@@ -1,13 +1,13 @@
 {
   "name": "x-router",
   "description": "router for browser",
-  "main": "dist/routes.min.js",
+  "main": "dist/x-router.min.js",
   "moduleType": ["node", "amd", "globals"],
   "authors": [
     "joje <joje.attrs@gmail.com>"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/attrs/browser-routes",
+  "homepage": "https://github.com/attrs/x-router",
   "ignore": [
     "**/.*",
     "node_modules",

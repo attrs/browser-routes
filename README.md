@@ -16,71 +16,59 @@ $ bower install x-router --save
 ```html
 <script src="/bower_components/x-router/dist/x-router.min.js"></script>
 <script>
-  Router().use(...);
+  xrouter().use(...);
 </script>
 ```
 
-### Commonjs way (browserify, webpack, webmodules)
+Browserify [`browserify`](https://www.npmjs.com/package/browserify), [`webpack`](https://www.npmjs.com/package/webpack), [`webmodules`](https://www.npmjs.com/package/webmodules)
 ```sh
 $ npm install x-router --save
 ```
 
 ```javascript
 var xrouter = require('x-router');
-xrouter().use(
-  router.Router()
-  .use(function(req, res, next) {
-    next();
-  })
-  .get('/', function(req, res, next) {
-    console.log('hello');
-  })
-);
+xrouter().use(...);
 ```
 
 
 ## Usage
-### Define Routing
 ```javascript
 xrouter()
+  .set('view target', '#page')  // default render target
+  .set('views', '/')
   .use(function(req, res, next) {
-    console.log('1', req.url, req.parentURL, req.params);
-    next();
-  })
-  .use('/:a', function(req, res, next) {
-    console.log('2', req.url, req.parentURL, req.params);
+    console.log('hello');
     next();
   })
   .get('/', function(req, res, next) {
-    console.log('index');
+    res.render('/partials/index.html');
   })
-  .use('/:a', xrouter.Router()
-    .use('/:b', xrouter.Router()
-      .get('/:c', function(req, res, next) {
-        console.log('3', req.url, req.parentURL, req.params);
-      })
-      .use('/:b', xrouter.Router()
-        .get('/:d', function(req, res, next) {
-          console.log('4', req.url, req.parentURL, req.params);
-        })
-      )
-    )
-    .use('/:b', function(req, res, next) {
-      console.log('5', req.url, req.parentURL, req.params);
-      next();
-    })
-    .get('/:b/:c', function(req, res, next) {
-      console.log('6', req.url, req.parentURL, req.params);
-    })
-    .get('/:b', function(req, res, next) {
-      console.log('7', req.url, req.parentURL, req.params);
-    })
+  .use('/sub', xrouter.Router()
+     .use(function(req, res, next) {
+       console.log('sub routing...');
+       next();
+     })
+     .get('/', 'index')  // redirect to `index`
+     .get('/index', function(req, res, next) {
+       res.render('/partials/sub/index.html',  {
+         target: '#newtarget'
+       }); 
+     })
+     .get('/:param', function(req, res, next) {
+       var param = req.params.param;
+       if( param === 'a' ) return res.redirect('index');
+       // same as { target: '#newtarget' }
+       res.render('/partials/sub/list.html', '#newtarget', function(err, target) {
+         if( err ) return next(err);
+         console.log('render target is ', target);
+       });
+     })
   )
-  .on('error', function(e) {
-    console.error('error', e.detail);
+  .use(function(req, res, next) {
+    console.error('notfound', req.href);
   })
-  .on('notfound', function(e) {
-    console.error('notfound', e.detail.url);
+  .on('error', function(e) {
+    console.error('error', e.detail.error);
   });
 
 
@@ -89,22 +77,30 @@ xrouter()
 ```
 
 ### Configuration
-> support both `pushstate` and `hash`, If you have not set up any value automatically using `pushstate`.
+> support both `pushstate` and `hash`, If you have not set up any value automatically using `pushstate` or `hash`.
 
 ```html
-<meta name="xrouter.mode" content="pushstate | hash">
+<meta name="xrouter.mode" content="pushstate | hash | auto | none">
 <meta name="xrouter.debug" content="false | true">
 <meta name="xrouter.observe" content="true | false">
+<meta name="xrouter.observe.delay" content="1000">
 ```
 
-### In HTML
+- `xrouter.mode` : router reaction mode, `pushstate` uses `history.pushState`, `hash` uses `url hash` & `none` does not change or reacting the `browser path bar`. `auto` or `(empty)` is automatically use `pushstate` or `hash` depending on the environment.
+- `xrouter.debug` : log debug messages to console.
+- `xrouter.observe` : use mutation observer when tag dynamically added to document. if browser does not support `MutationObserver`, it should be checked every 1,000ms.
+- `xrouter.observe.delay` : observe delay in milliseconds. default value is 1000. (only <= ie10)
+
+### in HTML
 ```html
 <a href="/a/b/c/d/e" route>/a/b</a>
 <a href="/a/b/c/d/e" route ghost>/a/c</a>
 <a href="javascript:xrouter.href('/a/b/c/d');">xrouter.href('/a/b/c/d')</a>
 ```
 
-
+### Middleware & View engines
+- [`x-router-angular`](https://github.com/attrs/x-router-angular)
+- [`x-router-modal`](https://github.com/attrs/x-router-modal)
 
 ### License
 Licensed under the MIT License.
