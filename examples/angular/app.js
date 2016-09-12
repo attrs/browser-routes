@@ -2,12 +2,20 @@ var router = require('x-router');
 var angularengine = require('x-router-angular');
 var angular = require('angular');
 
-angular.app('app', [])
-.controller('article', ['$scope', 'ensure', function(scope) {
+angular.module('app', [])
+.service('ensure', function() {
+  return angularengine.ensure;
+})
+.controller('common', ['$scope', function(scope) {
+  scope.commonvalue = {hello:'Hello, world!'};
+}])
+.controller('article', ['$scope', 'ensure', function(scope, ensure) {
   scope.setValue = function(value) {
-    scope.value = value;
+    ensure(scope, function() {
+      scope.value = value;
+    });
   };
-});
+}]);
 
 router()
   .engine('angular', angularengine())
