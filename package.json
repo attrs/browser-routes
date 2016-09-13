@@ -7,10 +7,11 @@
   "repository": "attrs/x-router",
   "author": "joje <joje.attrs@gmail.com>",
   "scripts": {
-    "exam": "wpm up 9999 ./examples/commonjs -s",
+    "exam": "wpm up 9999 ./examples/basic -s",
     "exam-angular": "wpm up 9999 ./examples/angular -s",
     "exam-swig": "wpm up 9999 ./examples/swig -s",
     "exam-vanilla": "wpm up 9999 ./examples/vanilla -s",
+    "exam-modal": "wpm up 9999 ./examples/modal -s",
     "prepublish": "gulp"
   },
   "license": "MIT",

@@ -8,7 +8,17 @@
 [downloads-url]: https://npmjs.org/package/x-router
 
 ## Installation
+Browserify (Recommend) [`browserify`](https://www.npmjs.com/package/browserify), [`webpack`](https://www.npmjs.com/package/webpack), [`webmodules`](https://www.npmjs.com/package/webmodules)
+```sh
+$ npm install x-router --save
+```
 
+```javascript
+var xrouter = require('x-router');
+xrouter().use(...);
+```
+
+Vanilla
 ```sh
 $ bower install x-router --save
 ```
@@ -20,16 +30,21 @@ $ bower install x-router --save
 </script>
 ```
 
-Browserify [`browserify`](https://www.npmjs.com/package/browserify), [`webpack`](https://www.npmjs.com/package/webpack), [`webmodules`](https://www.npmjs.com/package/webmodules)
+## Run Examples
 ```sh
-$ npm install x-router --save
+$ sudo npm i -g webmodules
+$ git clone https://github.com/attrs/x-router.git
+$ cd x-router
+$ npm install
+$ npm run exam
 ```
 
-```javascript
-var xrouter = require('x-router');
-xrouter().use(...);
+Another Examples
+```sh
+$ npm run exam-swig
+$ npm run exam-angular
+$ npm run exam-modal
 ```
-
 
 ## Usage
 ```javascript
@@ -70,10 +85,6 @@ xrouter()
   .on('error', function(e) {
     console.error('error', e.detail.error);
   });
-
-
-
-
 ```
 
 ### Configuration
@@ -98,9 +109,12 @@ xrouter()
 <a href="javascript:xrouter.href('/a/b/c/d');">xrouter.href('/a/b/c/d')</a>
 ```
 
-### Middleware & View engines
-- [`x-router-angular`](https://github.com/attrs/x-router-angular)
-- [`x-router-modal`](https://github.com/attrs/x-router-modal)
+### Middleware
+- [`x-router-modal`](https://www.npmjs.com/package/x-router-modal)
+
+### View engines
+- [`x-router-angular`](https://www.npmjs.com/package/x-router-angular)
+- [`x-router-swig`](https://www.npmjs.com/package/x-router-swig)
 
 ### License
 Licensed under the MIT License.
