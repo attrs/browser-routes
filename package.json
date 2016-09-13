@@ -30,7 +30,7 @@
     "x-router-swig": "*"
   },
   "dependencies": {
-    "route-pattern": "^0.0.6"
+    "tinyrouter": "^0.0.0"
   },
   "files": [
     "package.json",

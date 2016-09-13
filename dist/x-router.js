@@ -64,21 +64,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var path = __webpack_require__(1);
 	var URL = __webpack_require__(3);
-	var RoutePattern = __webpack_require__(9);
+	var Router = __webpack_require__(9);
 	
-	/*
-	(function() {
-	  var defined = '/hello/:planet?foo=:foo&fruit=:fruit#:section';
-	  var url = '/hello/earth?foo=bar&fruit=apple#chapter2';
-	  var pattern = RoutePattern.fromString(defined);
-	  var matches = pattern.matches(url);
-	  var params = pattern.match(url);
-	  
-	  console.log('match', matches);
-	  console.log(JSON.stringify(params, null, '  '));
-	});
-	*/
-	
+	if( !document.head ) document.head = document.getElementsByTagName("head")[0];
 	var a = document.createElement('a');
 	function normalize(url) {
 	  if( typeof url !== 'string' ) throw new TypeError('illegal url');
@@ -106,16 +94,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	}
 	
-	if( !document.head ) document.head = document.getElementsByTagName("head")[0];
-	
 	function meta(name, alt) {
 	  var tag = document.head.querySelector('meta[name="xrouter.' + name + '"]');
 	  return (tag && tag.getAttribute('content')) || alt;
-	}
-	
-	function endsWith(str, word) {
-	  var i = str.toLowerCase().indexOf(word);
-	  return i > 0 && i === str.length - word.length;
 	}
 	
 	function parseQuery(query) {
@@ -142,386 +123,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  else scope.attachEvent(type, fn); 
 	}
 	
-	function patternize(source, ignoresubdir) {
-	  var pettern = RoutePattern.fromString(source);
-	  var ap = RoutePattern.fromString(source + '/*after');
-	  
-	  return {
-	    match: function(url) {
-	      if( source === '/' ) return ignoresubdir ? true : (source === url);
-	      
-	      if( pettern.matches(url) ) {
-	        return pettern.match(url).namedParams;
-	      } else if( ignoresubdir && ap.matches(url) ) {
-	        var params = ap.match(url).namedParams;
-	        delete params.after;
-	        return params;
-	      }
-	      return false;
-	    },
-	    matches: function(url) {
-	      return pattern.matches(url) ? true : (ignoresubdir && ap.matches(url) ? true : false);
-	    }
-	  };
-	}
-	
-	function dividepath(axis, full) {
-	  if( axis[0] === '/' ) axis = axis.substring(1);
-	  if( full[0] === '/' ) full = full.substring(1);
-	  if( endsWith(axis, '/') ) axis = axis.substring(0, axis.length - 1);
-	  if( endsWith(full, '/') ) full = full.substring(0, full.length - 1);
-	  if( !axis ) return {
-	    sub: '/' + full,
-	    parent: '/'
-	  };
-	  
-	  while(~axis.indexOf('//')) axis.split('//').join('/');
-	  while(~full.indexOf('//')) full.split('//').join('/');
-	  
-	  axis = axis.split('/');
-	  full = full.split('/');
-	  var sub = [], parent = [];
-	  
-	  for(var i=0; i < full.length; i++) {
-	    if( axis[i] && axis[i][0] !== ':' &&  full[i] !== axis[i] ) return null;
-	    
-	    if( i >= axis.length ) sub.push(full[i]);
-	    else parent.push(full[i]);
-	  }
-	  
-	  return {
-	    parent: '/' + parent.join('/'),
-	    sub: '/' + sub.join('/')
-	  };
-	}
-	
-	/*
-	console.log('/', subpath('/', '/system/user/list'));
-	console.log('/system', subpath('/system', '/system/user/list'));
-	console.log('/system/user', subpath('/system/user', '/system/user/list'));
-	console.log('/system/user/list', subpath('/system/user/list', '/system/user/list'));
-	console.log('/:a', subpath('/:a', '/system/user/list'));
-	console.log('/:a/:b', subpath('/:a/:b', '/system/user/list'));
-	console.log('/:a/:b/:c', subpath('/:a/:b/:c', '/system/user/list'));
-	
-	var p = patternize('/', true);
-	console.log('/a/b/c', p.match('/a/b/c'));
-	*/
-	
 	function capture(o) {
 	  return JSON.parse(JSON.stringify(o));
-	}
-	
-	function mix() {
-	  var result = {};
-	  [].forEach.call(arguments, function(o) {
-	    if( o && typeof o === 'object' ) {
-	      for(var k in o ) result[k] = o[k];
-	    }
-	  });
-	  return result;
-	}
-	
-	// event
-	var EventObject = (function() {
-	  function EventObject(type, detail, target, cancelable) {
-	    this.type = type;
-	    this.detail = detail || {};
-	    this.target = this.currentTarget = target;
-	    this.cancelable = cancelable === true ? true : false;
-	    this.defaultPrevented = false;
-	    this.stopped = false;
-	    this.timeStamp = new Date().getTime();
-	  }
-	
-	  EventObject.prototype = {
-	    preventDefault: function() {
-	      if( this.cancelable ) this.defaultPrevented = true;
-	    },
-	    stopPropagation: function() {
-	      this.stopped = true;
-	    },
-	    stopImmediatePropagation: function() {
-	      this.stoppedImmediate = true;
-	    }
-	  };
-	
-	  EventObject.createEvent = function(type, detail, target, cancelable) {
-	    return new EventObject(type, detail, target, cancelable);
-	  };
-	  
-	  return EventObject;
-	})();
-	
-	var routermark = {};
-	
-	// factory Router
-	function Router(id) {
-	  id = id || (Math.random() + '') || 'unknwon';
-	  var boot = true;
-	  var routes = [];
-	  var listeners = {};
-	  var error;
-	  
-	  var body = function Router(req, res, onext) {
-	    if( !req.url || req.url[0] !== '/' ) return console.error('[x-router] illegal state: url not defined in request: ', req.url);
-	    error = null;
-	    onext = onext || function() {};
-	    
-	    var oParentURL = req.parentURL || '';
-	    var oURL = req.url;
-	    var oParams = req.params || {};
-	    var i = 0, finished = false;
-	    
-	    var next = function(err) {
-	      if( finished ) return console.error('[x-router] next function twice called.', id, err);
-	      finished = true;
-	      
-	      req.url = oURL;
-	      req.parentURL = oParentURL;
-	      req.params = oParams;
-	      boot = false;
-	      
-	      if( err ) {
-	        body.fire('error', {
-	          router: body,
-	          href: req.href,
-	          url: req.currentURL,
-	          request: req,
-	          response: res,
-	          error: err
-	        });
-	        
-	        return onext(err);
-	      }
-	      
-	      body.fire('notfound', {
-	        router: body,
-	        href: req.href,
-	        url: req.currentURL,
-	        request: req,
-	        response: res
-	      });
-	      
-	      onext();
-	    };
-	    
-	    var forward = function(err) {
-	      if( err ) return next(err);
-	      
-	      var route = routes[i++];
-	      if( !route ) return next();
-	      if( !boot && route.type === 'boot' ) return forward();
-	      //console.log(route, boot, route.pattern, route.pattern.match(req.url));
-	      
-	      var params = route.pattern && route.pattern.match(req.url);
-	      if( !params ) return forward();
-	      req.params = mix(oParams, params);
-	      
-	      var fn = route.fn;
-	      var routepath = route.path;
-	      var type = route.type;
-	      
-	      if( typeof fn == 'string' ) {
-	        fn = fn.trim();
-	        if( !fn.indexOf('/') || !fn.indexOf('..') ) {
-	          return res.redirect(path.resolve(req.parentURL, fn));
-	        } else {
-	          req.url = oURL = '/' + fn.split('./').join('');
-	          req.app.replace(path.join(req.parentURL, req.url));
-	          return forward();
-	        }
-	      }
-	      
-	      var parentURL = req.parentURL = oParentURL;
-	      var url = req.url = oURL;
-	      var div = dividepath(routepath, url);
-	      var currentURL = path.join(oParentURL, div.parent);
-	      
-	      req.boot = boot;
-	      req.currentURL = currentURL;
-	      
-	      if( fn.__router__ ) {
-	        url = req.url = div.sub;
-	        parentURL = req.parentURL = currentURL;
-	      }
-	      
-	      body.fire('route', {
-	        routetype: type,
-	        config: route,
-	        url: currentURL,
-	        href: req.href,
-	        fn: fn,
-	        params: params,
-	        boot: boot,
-	        request: req,
-	        response: res
-	      });
-	      
-	      route.fn.apply(body, [req, res, forward]);
-	    };
-	    forward();
-	  };
-	  
-	  body.id = id;
-	  body.__router__ = routermark;
-	  
-	  var adaptchild = function(fn) {
-	    if( fn.__router__ === routermark ) {
-	      fn.parent = body;
-	    }
-	    return fn;
-	  };
-	  
-	  body.exists = function(url) {
-	    var exists = false;
-	    routes.forEach(function(route) {
-	      if( exists ) return;
-	      if( route.type === 'get' ) {
-	        var params = route.pattern.match(url);
-	        if( params ) exists = true;
-	      } else if( route.type === 'use' ) {
-	        exists = route.fn.exists(url.substring(route.path.length));
-	      }
-	    });
-	    return exists;
-	  };
-	  
-	  body.use = function(path, fn) {
-	    if( typeof path === 'function' ) fn = path, path = '/';
-	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
-	    
-	    routes.push({
-	      type: 'use',
-	      path: path || '/',
-	      pattern: patternize(path, true),
-	      fn: adaptchild(fn)
-	    });
-	    return this;
-	  };
-	  
-	  body.get = function(path, fn) {
-	    if( typeof path === 'function' ) fn = path, path = '/';
-	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
-	    
-	    routes.push({
-	      type: 'get',
-	      path: path || '/',
-	      pattern: patternize(path),
-	      fn: fn
-	    });
-	    return this;
-	  };
-	  
-	  body.boot = function(path, fn) {
-	    if( typeof path === 'function' ) fn = path, path = '/';
-	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
-	    
-	    routes.push({
-	      type: 'boot',
-	      path: path || '/',
-	      pattern: patternize(path, true),
-	      fn: adaptchild(fn)
-	    });
-	    return this;
-	  };
-	  
-	  body.notfound = function(fn) {
-	    body.on('notfound', fn);
-	    return this;
-	  };
-	  
-	  body.error = function(fn) {
-	    body.on('error', fn);
-	    return this;
-	  };
-	  
-	  body.drop = function(fn) {
-	    var dropfns = [];
-	    routes.forEach(function(route) {
-	      if( route.fn === fn ) dropfns.push(route);
-	    });
-	    
-	    dropfns.forEach(function(route) {
-	      routes.splice(routes.indexOf(route), 1);
-	    });
-	    return this;
-	  };
-	  
-	  body.clear = function() {
-	    routes = [];
-	    return this;
-	  };
-	  
-	  body.on = function(type, fn) {
-	    listeners[type] = listeners[type] || [];
-	    listeners[type].push(fn);
-	    
-	    return this;
-	  };
-	  
-	  body.once = function(type, fn) {
-	    var wrap = function(e) {
-	      body.off(type, wrap);
-	      return fn.call(this, e);
-	    };
-	    body.on(type, wrap);
-	    return this;
-	  };
-	  
-	  body.off = function(type, fn) {
-	    var fns = listeners[type];
-	    if( fns )
-	      for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
-	    
-	    return this;
-	  };
-	  
-	  body.fire = function(type, detail) {
-	    var typename = (type && type.type) || type;
-	    if( !listeners[typename] && !listeners['*'] && !(typename === 'route' && body.parent) ) return;
-	    
-	    var event;
-	    if( typeof type === 'string' ) {
-	      event = EventObject.createEvent(type, detail, body);
-	    } else if( type instanceof EventObject ) {
-	      event = type;
-	    } else {
-	      return console.error('[x-router] illegal arguments, type is must be a string or event', type);
-	    }
-	    event.currentTarget = body;
-	    
-	    var stopped = false, prevented = false;
-	    var action = function(listener, scope) {
-	      if( stopped ) return;
-	      listener.call(scope, event);
-	      if( event.defaultPrevented === true ) prevented = true;
-	      if( event.stoppedImmediate === true ) stopped = true;
-	    };
-	    
-	    (listeners['*'] || []).forEach(action, body);
-	    (listeners[event.type] || []).forEach(action, body);
-	    
-	    if( event.type === 'route' && body.parent ) {
-	      body.parent.fire(event);
-	    }
-	    
-	    return !prevented;
-	  };
-	  
-	  body.hasListener = function(type) {
-	    if( typeof type === 'function' ) {
-	      var found = false;
-	      listeners.forEach(function(fn) {
-	        if( found ) return;
-	        if( fn === type ) found = true;
-	      });
-	      return found;
-	    }
-	    return listeners[type] && listeners[type].length ? true : false;
-	  };
-	  
-	  return body;
 	}
 	
 	// class Application
@@ -1360,7 +963,6 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports) {
 
 	// shim for using process in browser
-	
 	var process = module.exports = {};
 	
 	// cached from whatever global is present so that test runners that stub it
@@ -1371,22 +973,84 @@ return /******/ (function(modules) { // webpackBootstrap
 	var cachedSetTimeout;
 	var cachedClearTimeout;
 	
+	function defaultSetTimout() {
+	    throw new Error('setTimeout has not been defined');
+	}
+	function defaultClearTimeout () {
+	    throw new Error('clearTimeout has not been defined');
+	}
 	(function () {
-	  try {
-	    cachedSetTimeout = setTimeout;
-	  } catch (e) {
-	    cachedSetTimeout = function () {
-	      throw new Error('setTimeout is not defined');
+	    try {
+	        if (typeof setTimeout === 'function') {
+	            cachedSetTimeout = setTimeout;
+	        } else {
+	            cachedSetTimeout = defaultSetTimout;
+	        }
+	    } catch (e) {
+	        cachedSetTimeout = defaultSetTimout;
 	    }
-	  }
-	  try {
-	    cachedClearTimeout = clearTimeout;
-	  } catch (e) {
-	    cachedClearTimeout = function () {
-	      throw new Error('clearTimeout is not defined');
+	    try {
+	        if (typeof clearTimeout === 'function') {
+	            cachedClearTimeout = clearTimeout;
+	        } else {
+	            cachedClearTimeout = defaultClearTimeout;
+	        }
+	    } catch (e) {
+	        cachedClearTimeout = defaultClearTimeout;
 	    }
-	  }
 	} ())
+	function runTimeout(fun) {
+	    if (cachedSetTimeout === setTimeout) {
+	        //normal enviroments in sane situations
+	        return setTimeout(fun, 0);
+	    }
+	    // if setTimeout wasn't available but was latter defined
+	    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+	        cachedSetTimeout = setTimeout;
+	        return setTimeout(fun, 0);
+	    }
+	    try {
+	        // when when somebody has screwed with setTimeout but no I.E. maddness
+	        return cachedSetTimeout(fun, 0);
+	    } catch(e){
+	        try {
+	            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+	            return cachedSetTimeout.call(null, fun, 0);
+	        } catch(e){
+	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+	            return cachedSetTimeout.call(this, fun, 0);
+	        }
+	    }
+	
+	
+	}
+	function runClearTimeout(marker) {
+	    if (cachedClearTimeout === clearTimeout) {
+	        //normal enviroments in sane situations
+	        return clearTimeout(marker);
+	    }
+	    // if clearTimeout wasn't available but was latter defined
+	    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+	        cachedClearTimeout = clearTimeout;
+	        return clearTimeout(marker);
+	    }
+	    try {
+	        // when when somebody has screwed with setTimeout but no I.E. maddness
+	        return cachedClearTimeout(marker);
+	    } catch (e){
+	        try {
+	            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+	            return cachedClearTimeout.call(null, marker);
+	        } catch (e){
+	            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+	            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+	            return cachedClearTimeout.call(this, marker);
+	        }
+	    }
+	
+	
+	
+	}
 	var queue = [];
 	var draining = false;
 	var currentQueue;
@@ -1411,7 +1075,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (draining) {
 	        return;
 	    }
-	    var timeout = cachedSetTimeout(cleanUpNextTick);
+	    var timeout = runTimeout(cleanUpNextTick);
 	    draining = true;
 	
 	    var len = queue.length;
@@ -1428,7 +1092,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    currentQueue = null;
 	    draining = false;
-	    cachedClearTimeout(timeout);
+	    runClearTimeout(timeout);
 	}
 	
 	process.nextTick = function (fun) {
@@ -1440,7 +1104,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    queue.push(new Item(fun, args));
 	    if (queue.length === 1 && !draining) {
-	        cachedSetTimeout(drainQueue, 0);
+	        runTimeout(drainQueue);
 	    }
 	};
 	
@@ -2914,7 +2578,383 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var querystring = __webpack_require__(10);
+	var path = __webpack_require__(1);
+	var RoutePattern = __webpack_require__(10);
+	var EventObject = __webpack_require__(11);
+	
+	function endsWith(str, word) {
+	  var i = str.toLowerCase().indexOf(word);
+	  return i > 0 && i === str.length - word.length;
+	}
+	
+	function patternize(source, ignoresubdir) {
+	  var pettern = RoutePattern.fromString(source);
+	  var ap = RoutePattern.fromString(source + '/*after');
+	  
+	  return {
+	    match: function(url) {
+	      if( source === '/' ) return ignoresubdir ? true : (source === url);
+	      
+	      if( pettern.matches(url) ) {
+	        return pettern.match(url).namedParams;
+	      } else if( ignoresubdir && ap.matches(url) ) {
+	        var params = ap.match(url).namedParams;
+	        delete params.after;
+	        return params;
+	      }
+	      return false;
+	    },
+	    matches: function(url) {
+	      return pattern.matches(url) ? true : (ignoresubdir && ap.matches(url) ? true : false);
+	    }
+	  };
+	}
+	
+	function dividepath(axis, full) {
+	  if( axis[0] === '/' ) axis = axis.substring(1);
+	  if( full[0] === '/' ) full = full.substring(1);
+	  if( endsWith(axis, '/') ) axis = axis.substring(0, axis.length - 1);
+	  if( endsWith(full, '/') ) full = full.substring(0, full.length - 1);
+	  if( !axis ) return {
+	    sub: '/' + full,
+	    parent: '/'
+	  };
+	  
+	  while(~axis.indexOf('//')) axis.split('//').join('/');
+	  while(~full.indexOf('//')) full.split('//').join('/');
+	  
+	  axis = axis.split('/');
+	  full = full.split('/');
+	  var sub = [], parent = [];
+	  
+	  for(var i=0; i < full.length; i++) {
+	    if( axis[i] && axis[i][0] !== ':' &&  full[i] !== axis[i] ) return null;
+	    
+	    if( i >= axis.length ) sub.push(full[i]);
+	    else parent.push(full[i]);
+	  }
+	  
+	  return {
+	    parent: '/' + parent.join('/'),
+	    sub: '/' + sub.join('/')
+	  };
+	}
+	
+	function mix() {
+	  var result = {};
+	  [].forEach.call(arguments, function(o) {
+	    if( o && typeof o === 'object' ) {
+	      for(var k in o ) result[k] = o[k];
+	    }
+	  });
+	  return result;
+	}
+	
+	
+	var routermark = {};
+	function Router(id) {
+	  id = id || (Math.random() + '') || 'unknwon';
+	  var boot = true;
+	  var routes = [];
+	  var listeners = {};
+	  var error;
+	  
+	  var body = function Router(req, res, onext) {
+	    if( !req.url || req.url[0] !== '/' ) return console.error('illegal state: url not defined in request: ', req.url);
+	    error = null;
+	    onext = onext || function() {};
+	    
+	    var oParentURL = req.parentURL || '';
+	    var oURL = req.url;
+	    var oParams = req.params || {};
+	    var i = 0, finished = false;
+	    
+	    var next = function(err) {
+	      if( finished ) return console.error('next function twice called.', id, err);
+	      finished = true;
+	      
+	      req.url = oURL;
+	      req.parentURL = oParentURL;
+	      req.params = oParams;
+	      boot = false;
+	      
+	      if( err ) {
+	        body.fire('error', {
+	          router: body,
+	          href: req.href,
+	          url: req.currentURL,
+	          request: req,
+	          response: res,
+	          error: err
+	        });
+	        
+	        return onext(err);
+	      }
+	      
+	      body.fire('notfound', {
+	        router: body,
+	        href: req.href,
+	        url: req.currentURL,
+	        request: req,
+	        response: res
+	      });
+	      
+	      onext();
+	    };
+	    
+	    var forward = function(err) {
+	      if( err ) return next(err);
+	      
+	      var route = routes[i++];
+	      if( !route ) return next();
+	      if( !boot && route.type === 'boot' ) return forward();
+	      //console.log(route, boot, route.pattern, route.pattern.match(req.url));
+	      
+	      var params = route.pattern && route.pattern.match(req.url);
+	      if( !params ) return forward();
+	      req.params = mix(oParams, params);
+	      
+	      var fn = route.fn;
+	      var routepath = route.path;
+	      var type = route.type;
+	      
+	      if( typeof fn == 'string' ) {
+	        fn = fn.trim();
+	        if( !fn.indexOf('/') || !fn.indexOf('..') ) {
+	          return res.redirect(path.resolve(req.parentURL, fn));
+	        } else {
+	          req.url = oURL = '/' + fn.split('./').join('');
+	          req.app.replace(path.join(req.parentURL, req.url));
+	          return forward();
+	        }
+	      }
+	      
+	      var parentURL = req.parentURL = oParentURL;
+	      var url = req.url = oURL;
+	      var div = dividepath(routepath, url);
+	      var currentURL = path.join(oParentURL, div.parent);
+	      
+	      req.boot = boot;
+	      req.currentURL = currentURL;
+	      
+	      if( fn.__router__ ) {
+	        url = req.url = div.sub;
+	        parentURL = req.parentURL = currentURL;
+	      }
+	      
+	      body.fire('route', {
+	        routetype: type,
+	        config: route,
+	        url: currentURL,
+	        href: req.href,
+	        fn: fn,
+	        params: params,
+	        boot: boot,
+	        request: req,
+	        response: res
+	      });
+	      
+	      route.fn.apply(body, [req, res, forward]);
+	    };
+	    forward();
+	  };
+	  
+	  body.id = id;
+	  body.__router__ = routermark;
+	  
+	  var adaptchild = function(fn) {
+	    if( fn.__router__ === routermark ) {
+	      fn.parent = body;
+	    }
+	    return fn;
+	  };
+	  
+	  body.exists = function(url) {
+	    var exists = false;
+	    routes.forEach(function(route) {
+	      if( exists ) return;
+	      if( route.type === 'get' ) {
+	        var params = route.pattern.match(url);
+	        if( params ) exists = true;
+	      } else if( route.type === 'use' ) {
+	        exists = route.fn.exists(url.substring(route.path.length));
+	      }
+	    });
+	    return exists;
+	  };
+	  
+	  body.use = function(path, fn) {
+	    if( typeof path === 'function' ) fn = path, path = '/';
+	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
+	    
+	    routes.push({
+	      type: 'use',
+	      path: path || '/',
+	      pattern: patternize(path, true),
+	      fn: adaptchild(fn)
+	    });
+	    return this;
+	  };
+	  
+	  body.get = function(path, fn) {
+	    if( typeof path === 'function' ) fn = path, path = '/';
+	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
+	    
+	    routes.push({
+	      type: 'get',
+	      path: path || '/',
+	      pattern: patternize(path),
+	      fn: fn
+	    });
+	    return this;
+	  };
+	  
+	  body.boot = function(path, fn) {
+	    if( typeof path === 'function' ) fn = path, path = '/';
+	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
+	    
+	    routes.push({
+	      type: 'boot',
+	      path: path || '/',
+	      pattern: patternize(path, true),
+	      fn: adaptchild(fn)
+	    });
+	    return this;
+	  };
+	  
+	  body.notfound = function(fn) {
+	    body.on('notfound', fn);
+	    return this;
+	  };
+	  
+	  body.error = function(fn) {
+	    body.on('error', fn);
+	    return this;
+	  };
+	  
+	  body.drop = function(fn) {
+	    var dropfns = [];
+	    routes.forEach(function(route) {
+	      if( route.fn === fn ) dropfns.push(route);
+	    });
+	    
+	    dropfns.forEach(function(route) {
+	      routes.splice(routes.indexOf(route), 1);
+	    });
+	    return this;
+	  };
+	  
+	  body.clear = function() {
+	    routes = [];
+	    return this;
+	  };
+	  
+	  body.on = function(type, fn) {
+	    listeners[type] = listeners[type] || [];
+	    listeners[type].push(fn);
+	    
+	    return this;
+	  };
+	  
+	  body.once = function(type, fn) {
+	    var wrap = function(e) {
+	      body.off(type, wrap);
+	      return fn.call(this, e);
+	    };
+	    body.on(type, wrap);
+	    return this;
+	  };
+	  
+	  body.off = function(type, fn) {
+	    var fns = listeners[type];
+	    if( fns )
+	      for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
+	    
+	    return this;
+	  };
+	  
+	  body.fire = function(type, detail) {
+	    var typename = (type && type.type) || type;
+	    if( !listeners[typename] && !listeners['*'] && !(typename === 'route' && body.parent) ) return;
+	    
+	    var event;
+	    if( typeof type === 'string' ) {
+	      event = EventObject.createEvent(type, detail, body);
+	    } else if( type instanceof EventObject ) {
+	      event = type;
+	    } else {
+	      return console.error('illegal arguments, type is must be a string or event', type);
+	    }
+	    event.currentTarget = body;
+	    
+	    var stopped = false, prevented = false;
+	    var action = function(listener, scope) {
+	      if( stopped ) return;
+	      listener.call(scope, event);
+	      if( event.defaultPrevented === true ) prevented = true;
+	      if( event.stoppedImmediate === true ) stopped = true;
+	    };
+	    
+	    (listeners['*'] || []).forEach(action, body);
+	    (listeners[event.type] || []).forEach(action, body);
+	    
+	    if( event.type === 'route' && body.parent ) {
+	      body.parent.fire(event);
+	    }
+	    
+	    return !prevented;
+	  };
+	  
+	  body.hasListener = function(type) {
+	    if( typeof type === 'function' ) {
+	      var found = false;
+	      listeners.forEach(function(fn) {
+	        if( found ) return;
+	        if( fn === type ) found = true;
+	      });
+	      return found;
+	    }
+	    return listeners[type] && listeners[type].length ? true : false;
+	  };
+	  
+	  return body;
+	};
+	
+	module.exports = Router;
+	
+	
+	
+	
+	
+	/*
+	(function() {
+	  var defined = '/hello/:planet?foo=:foo&fruit=:fruit#:section';
+	  var url = '/hello/earth?foo=bar&fruit=apple#chapter2';
+	  var pattern = RoutePattern.fromString(defined);
+	  var matches = pattern.matches(url);
+	  var params = pattern.match(url);
+	  
+	  console.log('match', matches);
+	  console.log(JSON.stringify(params, null, '  '));
+	  
+	  console.log('/', subpath('/', '/system/user/list'));
+	  console.log('/system', subpath('/system', '/system/user/list'));
+	  console.log('/system/user', subpath('/system/user', '/system/user/list'));
+	  console.log('/system/user/list', subpath('/system/user/list', '/system/user/list'));
+	  console.log('/:a', subpath('/:a', '/system/user/list'));
+	  console.log('/:a/:b', subpath('/:a/:b', '/system/user/list'));
+	  console.log('/:a/:b/:c', subpath('/:a/:b/:c', '/system/user/list'));
+	
+	  var p = patternize('/', true);
+	  console.log('/a/b/c', p.match('/a/b/c'));
+	});
+	*/
+
+/***/ },
+/* 10 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var querystring = __webpack_require__(6);
 	
 	// # Utility functions
 	//
@@ -3287,195 +3327,36 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 10 */
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	exports.decode = exports.parse = __webpack_require__(11);
-	exports.encode = exports.stringify = __webpack_require__(12);
-
-
-/***/ },
 /* 11 */
 /***/ function(module, exports) {
 
-	// Copyright Joyent, Inc. and other Node contributors.
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a
-	// copy of this software and associated documentation files (the
-	// "Software"), to deal in the Software without restriction, including
-	// without limitation the rights to use, copy, modify, merge, publish,
-	// distribute, sublicense, and/or sell copies of the Software, and to permit
-	// persons to whom the Software is furnished to do so, subject to the
-	// following conditions:
-	//
-	// The above copyright notice and this permission notice shall be included
-	// in all copies or substantial portions of the Software.
-	//
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-	// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-	// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-	// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-	// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-	// USE OR OTHER DEALINGS IN THE SOFTWARE.
-	
-	'use strict';
-	
-	// If obj.hasOwnProperty has been overridden, then calling
-	// obj.hasOwnProperty(prop) will break.
-	// See: https://github.com/joyent/node/issues/1707
-	function hasOwnProperty(obj, prop) {
-	  return Object.prototype.hasOwnProperty.call(obj, prop);
+	function EventObject(type, detail, target, cancelable) {
+	  this.type = type;
+	  this.detail = detail || {};
+	  this.target = this.currentTarget = target;
+	  this.cancelable = cancelable === true ? true : false;
+	  this.defaultPrevented = false;
+	  this.stopped = false;
+	  this.timeStamp = new Date().getTime();
 	}
 	
-	module.exports = function(qs, sep, eq, options) {
-	  sep = sep || '&';
-	  eq = eq || '=';
-	  var obj = {};
-	
-	  if (typeof qs !== 'string' || qs.length === 0) {
-	    return obj;
-	  }
-	
-	  var regexp = /\+/g;
-	  qs = qs.split(sep);
-	
-	  var maxKeys = 1000;
-	  if (options && typeof options.maxKeys === 'number') {
-	    maxKeys = options.maxKeys;
-	  }
-	
-	  var len = qs.length;
-	  // maxKeys <= 0 means that we should not limit keys count
-	  if (maxKeys > 0 && len > maxKeys) {
-	    len = maxKeys;
-	  }
-	
-	  for (var i = 0; i < len; ++i) {
-	    var x = qs[i].replace(regexp, '%20'),
-	        idx = x.indexOf(eq),
-	        kstr, vstr, k, v;
-	
-	    if (idx >= 0) {
-	      kstr = x.substr(0, idx);
-	      vstr = x.substr(idx + 1);
-	    } else {
-	      kstr = x;
-	      vstr = '';
-	    }
-	
-	    k = decodeURIComponent(kstr);
-	    v = decodeURIComponent(vstr);
-	
-	    if (!hasOwnProperty(obj, k)) {
-	      obj[k] = v;
-	    } else if (isArray(obj[k])) {
-	      obj[k].push(v);
-	    } else {
-	      obj[k] = [obj[k], v];
-	    }
-	  }
-	
-	  return obj;
-	};
-	
-	var isArray = Array.isArray || function (xs) {
-	  return Object.prototype.toString.call(xs) === '[object Array]';
-	};
-
-
-/***/ },
-/* 12 */
-/***/ function(module, exports) {
-
-	// Copyright Joyent, Inc. and other Node contributors.
-	//
-	// Permission is hereby granted, free of charge, to any person obtaining a
-	// copy of this software and associated documentation files (the
-	// "Software"), to deal in the Software without restriction, including
-	// without limitation the rights to use, copy, modify, merge, publish,
-	// distribute, sublicense, and/or sell copies of the Software, and to permit
-	// persons to whom the Software is furnished to do so, subject to the
-	// following conditions:
-	//
-	// The above copyright notice and this permission notice shall be included
-	// in all copies or substantial portions of the Software.
-	//
-	// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-	// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-	// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-	// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-	// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-	// USE OR OTHER DEALINGS IN THE SOFTWARE.
-	
-	'use strict';
-	
-	var stringifyPrimitive = function(v) {
-	  switch (typeof v) {
-	    case 'string':
-	      return v;
-	
-	    case 'boolean':
-	      return v ? 'true' : 'false';
-	
-	    case 'number':
-	      return isFinite(v) ? v : '';
-	
-	    default:
-	      return '';
+	EventObject.prototype = {
+	  preventDefault: function() {
+	    if( this.cancelable ) this.defaultPrevented = true;
+	  },
+	  stopPropagation: function() {
+	    this.stopped = true;
+	  },
+	  stopImmediatePropagation: function() {
+	    this.stoppedImmediate = true;
 	  }
 	};
 	
-	module.exports = function(obj, sep, eq, name) {
-	  sep = sep || '&';
-	  eq = eq || '=';
-	  if (obj === null) {
-	    obj = undefined;
-	  }
-	
-	  if (typeof obj === 'object') {
-	    return map(objectKeys(obj), function(k) {
-	      var ks = encodeURIComponent(stringifyPrimitive(k)) + eq;
-	      if (isArray(obj[k])) {
-	        return map(obj[k], function(v) {
-	          return ks + encodeURIComponent(stringifyPrimitive(v));
-	        }).join(sep);
-	      } else {
-	        return ks + encodeURIComponent(stringifyPrimitive(obj[k]));
-	      }
-	    }).join(sep);
-	
-	  }
-	
-	  if (!name) return '';
-	  return encodeURIComponent(stringifyPrimitive(name)) + eq +
-	         encodeURIComponent(stringifyPrimitive(obj));
+	EventObject.createEvent = function(type, detail, target, cancelable) {
+	  return new EventObject(type, detail, target, cancelable);
 	};
 	
-	var isArray = Array.isArray || function (xs) {
-	  return Object.prototype.toString.call(xs) === '[object Array]';
-	};
-	
-	function map (xs, f) {
-	  if (xs.map) return xs.map(f);
-	  var res = [];
-	  for (var i = 0; i < xs.length; i++) {
-	    res.push(f(xs[i], i));
-	  }
-	  return res;
-	}
-	
-	var objectKeys = Object.keys || function (obj) {
-	  var res = [];
-	  for (var key in obj) {
-	    if (Object.prototype.hasOwnProperty.call(obj, key)) res.push(key);
-	  }
-	  return res;
-	};
-
+	module.exports = EventObject;
 
 /***/ }
 /******/ ])
