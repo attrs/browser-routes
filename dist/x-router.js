@@ -240,7 +240,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( !options || typeof options !== 'object' ) options = {};
 	    if( options.ghost === true ) options.writestate = true;
 	    
-	    if( router.debug ) console.info('href', href, lasthref, laststate);
+	    if( router.debug ) console.info('href', href, lasthref, laststate, options.writestate);
 	    
 	    var parsed = normalize(router.fullhref(href || ''));
 	    var url = parsed.pathname;
@@ -554,7 +554,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 	    
 	    window.onpopstate = function(e) {
-	      Application.href(validatelocation(), e.state, {writestate:false});
+	      Application.href(validatelocation(), e.state, {pop:true});
 	    };
 	    
 	    var push = function(href, body) {
@@ -575,7 +575,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var href = e.detail.href;
 	      var body = e.detail.request.body;
 	      var o = e.detail.request.options;
-	      if( o.writestate === false ) return;
+	      if( o.pop ) return;
 	      if( o.replacestate || o.redirect ) replace(href, body);
 	      else push(href, body);
 	    });
