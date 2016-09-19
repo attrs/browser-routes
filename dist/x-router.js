@@ -575,7 +575,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var href = e.detail.href;
 	      var body = e.detail.request.body;
 	      var o = e.detail.request.options;
-	      if( o.pop ) return;
+	      if( o.pop || o.writestate === false ) return;
 	      if( o.replacestate || o.redirect ) replace(href, body);
 	      else push(href, body);
 	    });
@@ -607,7 +607,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var url = e.detail.url;
 	      var body = e.detail.request.body;
 	      var o = e.detail.request.options;
-	      if( o.writestate === false ) return;
+	      if( o.pop || o.writestate === false ) return;
 	      if( o.replacestate || o.redirect ) replace(url, body);
 	      else push(url, body);
 	    });
@@ -673,8 +673,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    scan();
 	    
-	    if( mode === 'pushstate' ) Application.href(validatelocation());
-	    else if( mode === 'hash' ) Application.href(location.hash.substring(1));
+	    if( mode === 'hash' ) Application.href(location.hash.substring(1));
+	    else Application.href(validatelocation()); 
 	    
 	    // observe anchor tags
 	    if( meta('observe') !== 'false' ) {
