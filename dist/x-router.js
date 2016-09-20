@@ -66,7 +66,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var URL = __webpack_require__(3);
 	var Router = __webpack_require__(9);
 	
-	if( !document.head ) document.head = document.getElementsByTagName("head")[0];
+	if( !document.head ) document.head = document.getElementsByTagName('head')[0];
 	var a = document.createElement('a');
 	function normalize(url) {
 	  if( typeof url !== 'string' ) throw new TypeError('illegal url');
@@ -127,12 +127,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return JSON.parse(JSON.stringify(o));
 	}
 	
+	var debug = meta('debug') === 'true' ? true : false;
+	
 	// class Application
-	function Application() {
+	function Application(options) {
 	  var baseURL = '',
 	    router = Router('root'),
 	    hashrouter,
-	    options = {},
 	    request,
 	    response,
 	    session = {},
@@ -145,7 +146,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  
 	  Application.apps.push(router);
 	  
-	  router.debug = meta('debug') === 'true' ? true : (options.debug ? true : false);
+	  options = options || {};
+	  router.debug = 'debug' in options ? options.debug : debug;
+	  
+	  setTimeout(function() {
+	    if( options.baseURL ) router.base(options.baseURL);
+	    if( options.timeout ) router.timeout(options.timeout);
+	  }, 0);
 	  
 	  router.timeout = function(msec) {
 	    if( typeof msec !== 'number' ) return console.warn('illegal timeout ' + msec);
@@ -189,7 +196,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    ajax: function(src, done) {
 	      if( !src ) throw new Error('missing src');
 	      var text, error;
-	      var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
+	      var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
 	      xhr.open('GET', src, true);
 	      xhr.onreadystatechange = function(e) {
 	        if( this.readyState == 4 ) {
@@ -202,12 +209,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  router.fullhref = function(url) {
+	    if( !url ) return baseURL || '/';
+	    
 	    url = url.trim();
-	    if( !url ) url = baseURL;
-	    else if( url[0] === '/' ) url = baseURL + url;
-	    else if( !laststate ) url = baseURL + '/' + url;
-	    else if( laststate ) url = path.dirname(laststate) + '/' + url;
-	    else console.error('cannot resolve href', url);
+	    if( url[0] === '/' ) {
+	      url = baseURL + url;
+	    } else {
+	      if( !laststate ) url = baseURL + '/' + url;
+	      else url = baseURL + '/' + path.dirname(laststate) + '/' + url;
+	    }
 	    
 	    return normalize(url.split('//').join('/')).fullpath;
 	  };
@@ -218,7 +228,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
-	  router.replace = function(href, body) {
+	  /*router.replace = function(href, body) {
 	    var parsed = normalize(router.fullhref(href || ''));
 	    var url = parsed.pathname;
 	    if( url.indexOf(baseURL) !== 0 )
@@ -232,38 +242,54 @@ return /******/ (function(modules) { // webpackBootstrap
 	      body: body
 	    });
 	    return this;
-	  };
+	  };*/
+	    
+	  router.on('replace', function(e) {
+	    if( router.debug ) console.info('replaced', e.detail);
+	    laststate = e.detail.replaced;
+	  });
 	  
-	  router.href = function(href, body, options) {
+	  router.href = function(originalhref, body, options) {
+	    if( !arguments.length ) return lasthref;
 	    if( typeof body === 'boolean' ) options = {writestate:body}, body = null;
 	    if( typeof options === 'boolean' ) options = {writestate:options};
 	    if( !options || typeof options !== 'object' ) options = {};
 	    if( options.ghost === true ) options.writestate = true;
 	    
-	    if( router.debug ) console.info('href', href, lasthref, laststate, options.writestate);
-	    
-	    var parsed = normalize(router.fullhref(href || ''));
+	    var fullhref = router.fullhref(originalhref);
+	    var href = fullhref.substring(baseURL.length) || '/';
+	    var parsed = normalize(href || '');
 	    var url = parsed.pathname;
 	    var force = options.force === true ? true : false;
-	    if( url.indexOf(baseURL) !== 0 )
-	      return console.error('given href \'' + url + '\' is not a sub url of base url \'' + baseURL + '\'');
 	    
-	    url = url.substring(baseURL.length);
+	    if( router.debug ) console.info('href', originalhref, {
+	      fullhref: fullhref,
+	      href: href,
+	      url: url,
+	      laststate: laststate,
+	      lasthref: lasthref
+	    });
 	    
 	    //console.log('href', arguments[0], url););
+	    if( !href ) force = true;
 	    if( !force && lasthref === parsed.fullpath ) return;
-	    if( options.writestate !== false ) referer = laststate, laststate = lasthref = parsed.fullpath;
+	    
+	    referer = lasthref;
+	    lasthref = parsed.fullpath;
+	    if( options.writestate !== false ) laststate = parsed.fullpath;
 	    
 	    if( router.debug ) console.log('request', parsed.fullpath);
 	    
 	    hashrouter = Router('hash');
 	    request = router.request = {
 	      app: router,
-	      referer: referer,
-	      method: 'get',
+	      originalhref: originalhref,
+	      fullhref: fullhref,
+	      href: parsed.fullpath,
 	      parsed: parsed,
 	      baseURL: baseURL,
-	      href: parsed.fullpath,
+	      referer: referer,
+	      method: 'get',
 	      url: url || '/',
 	      options: options,
 	      hashname: parsed.hash,
@@ -311,6 +337,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	        
 	        if( router.fire('beforerender', {
+	          fullhref: fullhref,
+	          href: parsed.fullpath,
 	          options: o,
 	          src: src,
 	          target: target,
@@ -322,6 +350,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if( err ) return done(err);
 	            
 	            router.fire('render', {
+	              fullhref: fullhref,
+	              href: parsed.fullpath,
 	              options: o,
 	              src: src,
 	              target: target,
@@ -347,6 +377,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	        
 	        router.fire('redirect', {
+	          fullhref: fullhref,
+	          href: parsed.fullpath,
 	          options: options,
 	          referer: laststate,
 	          url: request.currentURL,
@@ -374,6 +406,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        //router.exechash(req.hash, fire);
 	        
 	        router.fire('end', {
+	          fullhref: fullhref,
 	          href: parsed.fullpath,
 	          url: request.currentURL,
 	          request: request,
@@ -391,6 +424,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    
 	    router.fire('request', {
+	      fullhref: fullhref,
 	      href: parsed.fullpath,
 	      url: url,
 	      request: request,
@@ -524,13 +558,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	    mode = 'hash';
 	  }
 	  
+	  if( debug ) console.info('xrouter.mode', meta('mode'), mode);
+	  
 	  var app = function() {
 	    return Application.current();
 	  };
 	  
 	  var validatelocation = function(href) {
+	    if( !href ) return console.error('validatelocation: missing href');
 	    var base = app().base() || '';
-	    href = normalize(href || location.href).fullpath;
+	    href = normalize(href).fullpath;
 	    if( !href.indexOf(base) ) return href.substring(base.length);
 	    return href;
 	  }
@@ -543,18 +580,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    history.pushState = function(state, title, href) {
 	      pushState.apply(history, arguments);
-	      Application.href(validatelocation(), state);
+	      Application.href(validatelocation(location.href), state);
 	    };
 	    
 	    history.replaceState = function(state, title, href) {
 	      replaceState.apply(history, arguments);
-	      Application.href(validatelocation(), state, {
+	      Application.href(validatelocation(location.href), state, {
 	        replacestate: true
 	      });
 	    };
 	    
 	    window.onpopstate = function(e) {
-	      Application.href(validatelocation(), e.state, {pop:true});
+	      Application.href(validatelocation(location.href), e.state, {pop:true});
 	    };
 	    
 	    var push = function(href, body) {
@@ -567,12 +604,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    Application.on('replace', function(e) {
 	      if( app() !== e.app ) return;
-	      replace(e.detail.href, e.detail.body);
+	      var href = path.join(e.app.base(), e.detail.replaced);
+	      replace(href, e.detail.request.body);
 	    });
 	    
 	    Application.on('request', function(e) {
 	      if( app() !== e.app ) return;
-	      var href = e.detail.href;
+	      var href = e.detail.fullhref;
 	      var body = e.detail.request.body;
 	      var o = e.detail.request.options;
 	      if( o.pop || o.writestate === false ) return;
@@ -599,12 +637,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    Application.on('replace', function(e) {
 	      if( app() !== e.app ) return;
-	      replace(e.detail.url, e.detail.body);
+	      var href = path.join(e.app.base(), e.detail.replaced);
+	      replace(href, e.detail.request.body);
 	    });
 	    
 	    Application.on('request', function(e) {
 	      if( app() !== e.app ) return;
-	      var url = e.detail.url;
+	      var url = e.detail.fullhref;
 	      var body = e.detail.request.body;
 	      var o = e.detail.request.options;
 	      if( o.pop || o.writestate === false ) return;
@@ -673,8 +712,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    scan();
 	    
-	    if( mode === 'hash' ) Application.href(location.hash.substring(1));
-	    else Application.href(validatelocation()); 
+	    if( mode === 'hash' ) Application.href(validatelocation(location.hash.substring(1)));
+	    else if( mode === 'pushstate') Application.href(validatelocation(location.href));
+	    // mode 가 none 인 경우, 직접 call 하는 걸로..
 	    
 	    // observe anchor tags
 	    if( meta('observe') !== 'false' ) {
@@ -717,7 +757,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  
 	  /* will be @deprecated : xrouter.href(...) */
 	  window.route = function() {
-	    console.warn('[x-router] window.route() is deprecated, use window.xrouter.href()');
+	    console.warn('[x-router] window.route() is deprecated(will be removed in 0.4.x), use window.xrouter.href()');
 	    var current = app();
 	    current.href.apply(current, arguments);
 	  };
@@ -2663,6 +2703,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( !req.url || req.url[0] !== '/' ) return console.error('illegal state: url not defined in request: ', req.url);
 	    error = null;
 	    onext = onext || function() {};
+	    req.app = req.app || body;
 	    
 	    var oParentURL = req.parentURL || '';
 	    var oURL = req.url;
@@ -2721,10 +2762,23 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( typeof fn == 'string' ) {
 	        fn = fn.trim();
 	        if( !fn.indexOf('/') || !fn.indexOf('..') ) {
-	          return res.redirect(path.resolve(req.parentURL, fn));
+	          return res.redirect && res.redirect(path.resolve(req.parentURL, fn));
 	        } else {
+	          var ohref = req.href || '';
+	          var acc = ohref;
+	          acc = ~acc.indexOf('?') ? acc.substring(0, acc.indexOf('?')) : acc;
+	          acc = ~acc.indexOf('#') ? acc.substring(0, acc.indexOf('#')) : acc;
+	          acc = ~acc.indexOf('&') ? acc.substring(0, acc.indexOf('&')) : acc;
+	          acc = ohref.substring(acc.length);
+	          
 	          req.url = oURL = '/' + fn.split('./').join('');
-	          req.app.replace(path.join(req.parentURL, req.url));
+	          req.href = path.join(req.parentURL, req.url) + acc;
+	          body.fire('replace', {
+	            previous: ohref,
+	            replaced: req.href,
+	            request: req,
+	            response: res
+	          });
 	          return forward();
 	        }
 	      }
@@ -2875,7 +2929,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  
 	  body.fire = function(type, detail) {
 	    var typename = (type && type.type) || type;
-	    if( !listeners[typename] && !listeners['*'] && !(typename === 'route' && body.parent) ) return;
+	    if( !listeners[typename] && !listeners['*'] && !(~['route', 'replace'].indexOf(typename) && body.parent) ) return;
 	    
 	    var event;
 	    if( typeof type === 'string' ) {
@@ -2898,7 +2952,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    (listeners['*'] || []).forEach(action, body);
 	    (listeners[event.type] || []).forEach(action, body);
 	    
-	    if( event.type === 'route' && body.parent ) {
+	    if( ~['route', 'replace'].indexOf(event.type) && body.parent ) {
 	      body.parent.fire(event);
 	    }
 	    

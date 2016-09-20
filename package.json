@@ -30,7 +30,7 @@
     "x-router-swig": "*"
   },
   "dependencies": {
-    "tinyrouter": "^0.0.0"
+    "tinyrouter": "^0.0.1"
   },
   "files": [
     "package.json",
@@ -40,6 +40,7 @@
     "README.md"
   ],
   "keywords": [
+    "x-router",
     "browser router",
     "frontend router",
     "html router",
