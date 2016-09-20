@@ -7,8 +7,8 @@
 [downloads-image]: https://img.shields.io/npm/dm/x-router.svg?style=flat
 [downloads-url]: https://npmjs.org/package/x-router
 
-## Installation
-Browserify (Recommend) [`browserify`](https://www.npmjs.com/package/browserify), [`webpack`](https://www.npmjs.com/package/webpack), [`webmodules`](https://www.npmjs.com/package/webmodules)
+## Install
+Browserify [`browserify`](https://www.npmjs.com/package/browserify), [`webpack`](https://www.npmjs.com/package/webpack), [`webmodules`](https://www.npmjs.com/package/webmodules)
 ```sh
 $ npm install x-router --save
 ```
@@ -28,22 +28,6 @@ $ bower install x-router --save
 <script>
   xrouter().use(...);
 </script>
-```
-
-## Run Examples
-```sh
-$ sudo npm i -g webmodules
-$ git clone https://github.com/attrs/x-router.git
-$ cd x-router
-$ npm install
-$ npm run exam
-```
-
-Another Examples
-```sh
-$ npm run exam-swig
-$ npm run exam-angular
-$ npm run exam-modal
 ```
 
 ## Usage
