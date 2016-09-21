@@ -246,15 +246,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	  router.on('replace', function(e) {
 	    if( router.debug ) console.info('replaced', e.detail);
-	    laststate = e.detail.replaced;
+	    lasthref = laststate = e.detail.replaced;
 	  });
+	  
+	  router.laststate = function() {
+	    return laststate;
+	  };
+	  
+	  router.lasthref = function() {
+	    return lasthref;
+	  };
 	  
 	  router.href = function(originalhref, body, options) {
 	    if( !arguments.length ) return lasthref;
 	    if( typeof body === 'boolean' ) options = {writestate:body}, body = null;
 	    if( typeof options === 'boolean' ) options = {writestate:options};
 	    if( !options || typeof options !== 'object' ) options = {};
-	    if( options.ghost === true ) options.writestate = true;
 	    
 	    var fullhref = router.fullhref(originalhref);
 	    var href = fullhref.substring(baseURL.length) || '/';
@@ -272,7 +279,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    //console.log('href', arguments[0], url););
 	    if( !href ) force = true;
-	    if( !force && lasthref === parsed.fullpath ) return;
+	    if( !force && laststate === parsed.fullpath ) return;
 	    
 	    referer = lasthref;
 	    lasthref = parsed.fullpath;
@@ -461,7 +468,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var href = function() {
 	    var app = current();
 	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    app.href.apply(currentapp, arguments);
+	    return app.href.apply(currentapp, arguments);
+	  };
+	  
+	  var lasthref = function() {
+	    var app = current();
+	    if( !app ) return console.warn('[x-router] not yet initialized');
+	    return app.lasthref.apply(currentapp, arguments);
+	  };
+	  
+	  var laststate = function() {
+	    var app = current();
+	    if( !app ) return console.warn('[x-router] not yet initialized');
+	    return app.laststate.apply(currentapp, arguments);
 	  };
 	  
 	  var on = function(type, fn) {
@@ -512,6 +531,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	  Application.Router = Router;
 	  Application.current = current;
 	  Application.href = href;
+	  Application.lasthref = lasthref;
+	  Application.laststate = laststate;
 	  Application.engine = engine;
 	  Application.on = on;
 	  Application.once = once;
@@ -565,7 +586,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  var validatelocation = function(href) {
-	    if( !href ) return console.error('validatelocation: missing href');
+	    href = href || '/';
 	    var base = app().base() || '';
 	    href = normalize(href).fullpath;
 	    if( !href.indexOf(base) ) return href.substring(base.length);
