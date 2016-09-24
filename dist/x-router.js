@@ -127,6 +127,45 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return JSON.parse(JSON.stringify(o));
 	}
 	
+	var Emitter = function(scope) {
+	  var listeners = {};
+	  
+	  var on = function(type, fn) {
+	    listeners[type] = listeners[type] || [];
+	    listeners[type].push(fn);
+	    return this;
+	  };
+	  
+	  var once = function(type, fn) {
+	    var wrap = function(e) {
+	      off(type, wrap);
+	      return fn.call(this, e);
+	    };
+	    body.on(type, wrap);
+	    return this;
+	  };
+	  
+	  var off = function(type, fn) {
+	    var fns = listeners[type];
+	    if( fns ) for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
+	    return this;
+	  };
+	  
+	  var emit = function(type, value) {
+	    var fns = listeners[type];
+	    (fns || []).forEach(function(fn) { fn.call(scope || this, value) });
+	    return this;
+	  };
+	  
+	  return {
+	    on: on,
+	    once: once,
+	    off: off,
+	    emit: emit
+	  };
+	};
+	
+	
 	var debug = meta('debug') === 'true' ? true : false;
 	
 	// class Application
@@ -142,7 +181,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    config = {},
 	    referer,
 	    laststate,
-	    lasthref;
+	    lasthref,
+	    emitter = Emitter(router);
 	  
 	  Application.apps.push(router);
 	  
@@ -157,6 +197,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  router.timeout = function(msec) {
 	    if( typeof msec !== 'number' ) return console.warn('illegal timeout ' + msec);
 	    timeout = msec;
+	  };
+	  
+	  router.emitter = function() {
+	    return emitter;
 	  };
 	  
 	  router.base = function(url) {
@@ -288,6 +332,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( router.debug ) console.log('request', parsed.fullpath);
 	    
 	    hashrouter = Router('hash');
+	    emitter = Emitter(router);
+	    
 	    request = router.request = {
 	      app: router,
 	      originalhref: originalhref,
@@ -305,8 +351,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      body: body || {},
 	      session: session
 	    };
-	    
-	    //console.log('req', capture(request));
 	    
 	    var finished = false;
 	    response = router.response = {
@@ -373,6 +417,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        
 	        return this;
 	      },
+	      hash: function(hash, fn) {
+	        hashrouter.get('#' + hash, fn);
+	        return this;
+	      },
 	      redirect: function(to, body, options) {
 	        response.end();
 	        options = options || {};
@@ -398,20 +446,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	        router.href(to, body, options);
 	        return this;
 	      },
-	      hash: function(hash, fn) {
-	        hashrouter.get('#' + hash, fn);
-	        return this;
+	      emit: function(type, value) {
+	        return emmitter.emit(type, value);
 	      },
-	      exechash: function(hash, done) {
-	        router.exechash(req.hash, done);
-	        return this;
-	      },
-	      end: function(exechash) {
+	      end: function() {
 	        if( finished ) return console.warn('[x-router] request \'' + request.href + '\' already finished.');
 	        finished = true;
 	        
 	        //router.exechash(req.hash, fire);
-	        
 	        router.fire('end', {
 	          fullhref: fullhref,
 	          href: parsed.fullpath,
@@ -483,6 +525,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return app.laststate.apply(currentapp, arguments);
 	  };
 	  
+	  var emitter = function() {
+	    var app = current();
+	    if( !app ) return console.warn('[x-router] not yet initialized');
+	    return app.emitter();
+	  };
+	  
 	  var on = function(type, fn) {
 	    listeners[type] = listeners[type] || [];
 	    listeners[type].push(fn);
@@ -538,6 +586,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  Application.once = once;
 	  Application.off = off;
 	  Application.fire = fire;
+	  Application.emitter = emitter;
 	  
 	  // @deprecated
 	  //Application.router = Router;
@@ -625,6 +674,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    Application.on('replace', function(e) {
 	      if( app() !== e.app ) return;
+	      var o = e.detail.request.options;
+	      if( o.pop || o.writestate === false ) return;
 	      var href = path.join(e.app.base(), e.detail.replaced);
 	      replace(href, e.detail.request.body);
 	    });
@@ -658,6 +709,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    Application.on('replace', function(e) {
 	      if( app() !== e.app ) return;
+	      var o = e.detail.request.options;
+	      if( o.pop || o.writestate === false ) return;
 	      var href = path.join(e.app.base(), e.detail.replaced);
 	      replace(href, e.detail.request.body);
 	    });
@@ -701,7 +754,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            
 	            if( !href || (~p && p < s) ) return;
 	            
-	            Application.href(href, null, {
+	            Application.href(href, {
+	              srcElement: a
+	            }, {
 	              writestate: ghost ? false : true
 	            });
 	            
@@ -716,7 +771,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if( !href || (~p && p < s) ) return;
 	            e.preventDefault();
 	            
-	            Application.href(href, null, {
+	            Application.href(href, {
+	              srcElement: a
+	            }, {
 	              writestate: ghost ? false : true
 	            });
 	          };
