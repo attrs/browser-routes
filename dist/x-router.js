@@ -333,6 +333,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    hashrouter = Router('hash');
 	    emitter = Emitter(router);
+	    var reqconfig = {};
 	    
 	    request = router.request = {
 	      app: router,
@@ -349,7 +350,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	      query: parseQuery(parsed.search),
 	      params: {},
 	      body: body || {},
-	      session: session
+	      session: session,
+	      get: function(key) {
+	        return reqconfig[key];
+	      },
+	      set: function(key, value) {
+	        if( value === null || value === undefined ) delete reqconfig[key];
+	        else reqconfig[key] = value;
+	        return this;
+	      }
 	    };
 	    
 	    var finished = false;
@@ -370,16 +379,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var o = {};
 	        for(var k in options) o[k] = options[k];
 	        
-	        var target = o.target || config['view target'];
+	        var target = o.target || reqconfig['view target'] || config['view target'];
 	        if( typeof target === 'string' ) target = document.querySelector(target);
-	        if( !target ) return done(new Error('target not found: ' + (target || config['view target'])));
+	        if( !target ) return done(new Error('view target not found: ' + (o.target || reqconfig['view target'] || config['view target'])));
 	        o.target = target;
 	        
 	        var extname = (typeof src === 'string') ? path.extname(src).substring(1).toLowerCase() : '';
-	        var defenginename = config['view engine'] || 'default';
+	        var defenginename = reqconfig['view engine'] || config['view engine'] || 'default';
 	        var enginename = extname || defenginename;
 	        var engine = router.engine(enginename) || router.engine(defenginename);
-	        var base = config['views'] || '/';
+	        var base = reqconfig['views'] || config['views'] || '/';
 	        
 	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
 	        if( typeof src === 'string' && !(~src.indexOf('://') || src.indexOf('//') == 0) ) {
@@ -647,29 +656,48 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    var pushState = history.pushState;
 	    var replaceState = history.replaceState;
+	    var staterefs = {}, lastref, refseq = 0;
 	    
-	    history.pushState = function(state, title, href) {
-	      pushState.apply(history, arguments);
-	      Application.href(validatelocation(location.href), state);
+	    history.pushState = function(body, title, href) {
+	      var seq = (refseq++) + '';
+	      staterefs[seq] = body;
+	      lastref = seq;
+	      pushState.call(history, seq, null, href);
+	      
+	      Application.href(validatelocation(location.href), body);
 	    };
 	    
-	    history.replaceState = function(state, title, href) {
-	      replaceState.apply(history, arguments);
-	      Application.href(validatelocation(location.href), state, {
+	    history.replaceState = function(body, title, href) {
+	      delete staterefs[lastref];
+	      var seq = (refseq++) + '';
+	      staterefs[seq] = body;
+	      lastref = seq;
+	      replaceState.call(history, seq, null, href);
+	      
+	      Application.href(validatelocation(location.href), body, {
 	        replacestate: true
 	      });
 	    };
 	    
 	    window.onpopstate = function(e) {
-	      Application.href(validatelocation(location.href), e.state, {pop:true});
+	      var body = staterefs[e.state];
+	      delete staterefs[e.state];
+	      Application.href(validatelocation(location.href), body, {pop:true});
 	    };
 	    
 	    var push = function(href, body) {
-	      pushState.call(history, body, null, href);
+	      var seq = (refseq++) + '';
+	      staterefs[seq] = body;
+	      lastref = seq;
+	      pushState.call(history, seq, null, href);
 	    };
 	    
 	    var replace = function(href, body) {
-	      replaceState.call(history, body, null, href);
+	      delete staterefs[lastref];
+	      var seq = (refseq++) + '';
+	      staterefs[seq] = body;
+	      lastref = seq;
+	      replaceState.call(history, seq, null, href);
 	    };
 	    
 	    Application.on('replace', function(e) {
