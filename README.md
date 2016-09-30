@@ -8,7 +8,7 @@
 [downloads-url]: https://npmjs.org/package/x-router
 
 ## Install
-Browserify [`browserify`](https://www.npmjs.com/package/browserify), [`webpack`](https://www.npmjs.com/package/webpack), [`webmodules`](https://www.npmjs.com/package/webmodules)
+Commonjs [`browserify`](https://www.npmjs.com/package/browserify), [`webpack`](https://www.npmjs.com/package/webpack), [`webmodules`](https://www.npmjs.com/package/webmodules)
 ```sh
 $ npm install x-router --save
 ```
