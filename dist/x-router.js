@@ -764,6 +764,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return v > 4 ? v : undef;
 	  }());
 	  
+	  var isExternal = function(href) {
+	    var p = href.indexOf(':'), s = href.indexOf('/');
+	    return (~p && p < s) || href.indexOf('//') === 0 || href.toLowerCase().indexOf('javascript:') === 0;
+	  };
+	  
 	  var observer;
 	  function bootup() {
 	    function routify(a) {
@@ -777,12 +782,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if( ie <= 8 ) {
 	          a.onclick = function(e) {
 	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
-	            var href = a.getAttribute('data-href') || a.getAttribute('href');
-	            var p = href.indexOf(':'), s = href.indexOf('/');
+	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
 	            
-	            if( !href || (~p && p < s) ) return;
+	            if( isExternal(href) ) return;
 	            
-	            Application.href(href, {
+	            if( href ) Application.href(href, {
 	              srcElement: a
 	            }, {
 	              writestate: ghost ? false : true
@@ -793,13 +797,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	        } else {
 	          a.onclick = function(e) {
 	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
-	            var href = a.getAttribute('data-href') || a.getAttribute('href');
-	            var p = href.indexOf(':'), s = href.indexOf('/');
+	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
 	            
-	            if( !href || (~p && p < s) ) return;
+	            if( isExternal(href) ) return;
 	            e.preventDefault();
 	            
-	            Application.href(href, {
+	            if( href ) Application.href(href, {
 	              srcElement: a
 	            }, {
 	              writestate: ghost ? false : true
