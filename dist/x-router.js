@@ -260,7 +260,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      url = baseURL + url;
 	    } else {
 	      if( !laststate ) url = baseURL + '/' + url;
-	      else url = baseURL + '/' + path.dirname(laststate) + '/' + url;
+	      else url = baseURL + '/' + path.dirname(lasthref) + '/' + url;
 	    }
 	    
 	    return normalize(url.split('//').join('/')).fullpath;
@@ -290,7 +290,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	  router.on('replace', function(e) {
 	    if( router.debug ) console.info('replaced', e.detail);
-	    lasthref = laststate = e.detail.replaced;
+	    lasthref = e.detail.replaced;
 	  });
 	  
 	  router.laststate = function() {
@@ -318,7 +318,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      href: href,
 	      url: url,
 	      laststate: laststate,
-	      lasthref: lasthref
+	      lasthref: lasthref,
+	      writestate: options.writestate
 	    });
 	    
 	    //console.log('href', arguments[0], url););
