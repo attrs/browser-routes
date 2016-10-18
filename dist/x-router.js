@@ -291,6 +291,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  router.on('replace', function(e) {
 	    if( router.debug ) console.info('replaced', e.detail);
 	    lasthref = laststate = e.detail.replaced;
+	    
+	    var req = e.detail.request;
+	    if( req.options.writestate !== false ) router.fire('changestate', {
+	      state: req.parentURL + req.url,
+	      request: req,
+	      response: e.detail.response
+	    });
 	  });
 	  
 	  router.laststate = function() {
@@ -353,9 +360,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      body: body || {},
 	      session: session,
 	      get: function(key) {
+	        console.warn('Deprecated: use response.get');
 	        return reqconfig[key];
 	      },
 	      set: function(key, value) {
+	        console.warn('Deprecated: use response.set');
 	        if( value === null || value === undefined ) delete reqconfig[key];
 	        else reqconfig[key] = value;
 	        return this;
@@ -427,6 +436,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	        
 	        return this;
 	      },
+	      get: function(key) {
+	        return reqconfig[key];
+	      },
+	      set: function(key, value) {
+	        if( value === null || value === undefined ) delete reqconfig[key];
+	        else reqconfig[key] = value;
+	        return this;
+	      },
 	      hash: function(hash, fn) {
 	        hashrouter.get('#' + hash, fn);
 	        return this;
@@ -486,6 +503,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      fullhref: fullhref,
 	      href: parsed.fullpath,
 	      url: url,
+	      request: request,
+	      response: response
+	    });
+	    
+	    if( options.writestate !== false ) router.fire('changestate', {
+	      state: url,
 	      request: request,
 	      response: response
 	    });
