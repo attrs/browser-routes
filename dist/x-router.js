@@ -169,9 +169,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	var debug = meta('debug') === 'true' ? true : false;
 	
 	// class Application
-	function Application(options) {
+	function Application(id) {
+	  id = id || 'root';
+	  if( Application.apps[id] ) return Application.apps[id];
+	  
 	  var baseURL = '',
-	    router = Router('root'),
+	    router = Router(id),
 	    hashrouter,
 	    request,
 	    response,
@@ -184,15 +187,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    lasthref,
 	    emitter = Emitter(router);
 	  
-	  Application.apps.push(router);
 	  
-	  options = options || {};
-	  router.debug = 'debug' in options ? options.debug : debug;
-	  
-	  setTimeout(function() {
-	    if( options.baseURL ) router.base(options.baseURL);
-	    if( options.timeout ) router.timeout(options.timeout);
-	  }, 0);
+	  Application.apps[id] = router;
 	  
 	  router.timeout = function(msec) {
 	    if( typeof msec !== 'number' ) return console.warn('illegal timeout ' + msec);
@@ -531,14 +527,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	// initialize context feature
 	(function() {
-	  var currentapp, apps = [], listeners = {}, engines = {};
+	  var currentapp, apps = {}, listeners = {}, engines = {};
 	  
 	  var current = function(app) {
-	    if( !arguments.length ) return currentapp || apps[0];
-	    if( !~apps.indexOf(app) ) return console.error('[x-router] not defined app', app);
+	    if( !arguments.length ) return currentapp || apps['root'];
 	    currentapp = app;
 	    return this;
 	  };
+	  
+	  var get = function(name) {
+	    return apps[name || 'root'];
+	  }
 	  
 	  var href = function() {
 	    var app = current();
@@ -609,6 +608,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  Application.apps = apps;
+	  Application.get = get;
 	  Application.Router = Router;
 	  Application.current = current;
 	  Application.href = href;
@@ -620,9 +620,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	  Application.off = off;
 	  Application.fire = fire;
 	  Application.emitter = emitter;
-	  
-	  // @deprecated
-	  //Application.router = Router;
 	})();
 	
 	// add default rendering engine
@@ -805,12 +802,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	        
 	        if( ie <= 8 ) {
 	          a.onclick = function(e) {
+	            var name = a.getAttribute('data-route') || a.getAttribute('route') || a.getAttribute('routes');
 	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
 	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
 	            
 	            if( isExternal(href) ) return;
+	            e.preventDefault();
 	            
-	            if( href ) Application.href(href, {
+	            var router = Application.get(name);
+	            if( !router ) return console.error('[x-router] not found router: ' + (name || '(default)'));
+	            
+	            if( href ) router.href(href, {
 	              srcElement: a
 	            }, {
 	              writestate: ghost ? false : true
@@ -820,13 +822,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	          };
 	        } else {
 	          a.onclick = function(e) {
+	            var name = a.getAttribute('data-route') || a.getAttribute('route') || a.getAttribute('routes');
 	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
 	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
 	            
 	            if( isExternal(href) ) return;
 	            e.preventDefault();
 	            
-	            if( href ) Application.href(href, {
+	            var router = Application.get(name);
+	            if( !router ) return console.error('[x-router] not found router: ' + (name || '(root)'));
+	            
+	            if( href ) router.href(href, {
 	              srcElement: a
 	            }, {
 	              writestate: ghost ? false : true
