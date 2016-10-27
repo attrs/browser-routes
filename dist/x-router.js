@@ -249,14 +249,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  router.fullhref = function(url) {
+	    var o = url;
 	    if( !url ) return baseURL || '/';
 	    
 	    url = url.trim();
 	    if( url[0] === '/' ) {
 	      url = baseURL + url;
 	    } else {
+	      var currentdir = path.dirname(laststate);
+	      
+	      if( currentdir.length <= 1 ) currentdir = '';
+	      else currentdir += '/';
+	      
 	      if( !laststate ) url = baseURL + '/' + url;
-	      else url = baseURL + '/' + path.dirname(laststate) + '/' + url;
+	      else url = baseURL + currentdir + url;
 	    }
 	    
 	    return normalize(url.split('//').join('/')).fullpath;
@@ -327,6 +333,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    //console.log('href', arguments[0], url););
 	    if( !href ) force = true;
+	    if( router.get('always') === true ) force = true;
 	    if( !force && laststate === parsed.fullpath ) return;
 	    
 	    referer = lasthref;
