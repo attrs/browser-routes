@@ -406,7 +406,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
 	        if( typeof src === 'string' && !(~src.indexOf('://') || src.indexOf('//') == 0) ) {
 	          if( src.trim()[0] === '/' ) src = '.' + src;
-	          src = URL.resolve(base, src);
+	          
+	          src = path.join(base, src);
 	        }
 	        
 	        if( router.fire('beforerender', {
@@ -711,6 +712,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var body = staterefs[e.state];
 	      delete staterefs[e.state];
 	      Application.href(validatelocation(location.href), body, {pop:true});
+	      
+	      app().fire('writestate', {
+	        href: validatelocation(location.href),
+	        body: body,
+	        push: false,
+	        replace: false,
+	        pop: true
+	      });
 	    };
 	    
 	    var push = function(href, body) {
@@ -718,6 +727,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	      staterefs[seq] = body;
 	      lastref = seq;
 	      pushState.call(history, seq, null, href);
+	      
+	      app().fire('writestate', {
+	        href: href,
+	        body: body,
+	        push: true,
+	        replace: false,
+	        pop: false
+	      });
 	    };
 	    
 	    var replace = function(href, body) {
@@ -726,6 +743,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	      staterefs[seq] = body;
 	      lastref = seq;
 	      replaceState.call(history, seq, null, href);
+	      
+	      app().fire('writestate', {
+	        href: href,
+	        body: body,
+	        push: false,
+	        replace: true,
+	        pop: false
+	      });
 	    };
 	    
 	    Application.on('replace', function(e) {
@@ -756,11 +781,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var replace = function(url, body) {
 	      lasturl = url;
 	      location.replace('#' + url);
+	      
+	      app().fire('writestate', {
+	        href: url,
+	        body: body,
+	        push: false,
+	        replace: true,
+	        pop: false
+	      });
 	    };
 	    
 	    var push = function(url, body) {
 	      lasturl = url;
 	      location.assign('#' + url);
+	      
+	      app().fire('writestate', {
+	        href: url,
+	        body: body,
+	        push: true,
+	        replace: false,
+	        pop: false
+	      });
 	    };
 	    
 	    Application.on('replace', function(e) {
