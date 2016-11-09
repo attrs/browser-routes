@@ -1,6 +1,6 @@
 {
   "name": "x-router",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "description": "router for browser",
   "main": "lib/index.js",
   "homepage": "https://github.com/attrs/x-router",
