@@ -66,6 +66,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	var URL = __webpack_require__(3);
 	var Router = __webpack_require__(9);
 	
+	var ROUTE_SELECTOR = '*[route], *[data-route], *[routes], *[data-routes]';
+	
 	if( !document.head ) document.head = document.getElementsByTagName('head')[0];
 	var a = document.createElement('a');
 	function normalize(url) {
@@ -440,6 +442,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	              url: request.currentURL,
 	              request: request,
 	              response: response
+	            });
+	            
+	            [].forEach.call(target.querySelectorAll(ROUTE_SELECTOR), function(node) {
+	              node.xrouter = node.xrouter || router;
 	            });
 	            
 	            done.apply(this, arguments);
@@ -849,59 +855,40 @@ return /******/ (function(modules) { // webpackBootstrap
 	  var observer;
 	  function bootup() {
 	    function routify(a) {
-	      if( !a.__xrouter__ ) {
-	        a.__xrouter__ = true;
+	      if( !a.__xrouter_scan__ ) {
+	        a.__xrouter_scan__ = true;
 	        
 	        a.onroute = null;
 	        a.onrouteresponse = null;
 	        a.onrouterequest = null;
 	        
-	        if( ie <= 8 ) {
-	          a.onclick = function(e) {
-	            var name = a.getAttribute('data-route') || a.getAttribute('route') || a.getAttribute('routes');
-	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
-	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
-	            
-	            if( isExternal(href) ) return;
-	            e.preventDefault();
-	            
-	            var router = Application.get(name);
-	            if( !router ) return console.error('[x-router] not found router: ' + (name || '(default)'));
-	            
-	            if( href ) router.href(href, {
-	              srcElement: a
-	            }, {
-	              writestate: ghost ? false : true
-	            });
-	            
-	            return false;
-	          };
-	        } else {
-	          a.onclick = function(e) {
-	            var name = a.getAttribute('data-route') || a.getAttribute('route') || a.getAttribute('routes');
-	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
-	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
-	            
-	            if( isExternal(href) ) return;
-	            e.preventDefault();
-	            
-	            var router = Application.get(name);
-	            if( !router ) return console.error('[x-router] not found router: ' + (name || '(root)'));
-	            
-	            if( href ) router.href(href, {
-	              srcElement: a
-	            }, {
-	              writestate: ghost ? false : true
-	            });
-	          };
-	        } 
+	        a.onclick = function(e) {
+	          var name = a.getAttribute('data-route') || a.getAttribute('route') || a.getAttribute('routes');
+	          var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
+	          var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
+	          
+	          if( isExternal(href) ) return;
+	          e.preventDefault();
+	          
+	          var router;
+	          if( !name && a.xrouter ) router = a.xrouter;
+	          else router = Application.get(name);
+	          
+	          if( !router ) return console.error('[x-router] not found router: ' + (name || '(root)'));
+	          
+	          if( href ) router.href(href, {
+	            srcElement: a
+	          }, {
+	            writestate: ghost ? false : true
+	          });
+	          return false;
+	        };
 	      }
 	      return this;
 	    }
 	    
-	    var routeselector = '*[route], *[data-route], *[routes], *[data-routes]';
 	    function scan() {
-	      [].forEach.call(document.querySelectorAll(routeselector), routify);
+	      [].forEach.call(document.querySelectorAll(ROUTE_SELECTOR), routify);
 	      return this;
 	    }
 	    
@@ -921,7 +908,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	              if( node.nodeType === 1 ) {
 	                if( node.hasAttribute('route') || node.hasAttribute('routes') ) routify(node);
 	                if( node.hasAttribute('data-route') || node.hasAttribute('data-routes') ) routify(node);
-	                if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll(routeselector), routify);
+	                if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll(ROUTE_SELECTOR), routify);
 	              }
 	            });
 	          });
