@@ -878,20 +878,19 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	        return this;
 	      }
-	    
+	      
 	      function scan() {
 	        [].forEach.call(document.querySelectorAll(ROUTE_SELECTOR), routify);
 	        return this;
 	      }
-	    
+	      
 	      scan();
-	    
+	      
 	      if( app() ) {
 	        if( mode === 'hash' ) Application.href(validatelocation(location.hash.substring(1)));
 	        else if( mode === 'pushstate') Application.href(validatelocation(location.href));
 	      }
-	      // mode 가 none 인 경우, 직접 call 하는 걸로..
-	    
+	      
 	      // observe anchor tags
 	      if( meta('observe') !== 'false' ) {
 	        if( window.MutationObserver ) {
@@ -907,7 +906,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	              });
 	            });
 	          });
-	      
+	          
 	          observer.observe(document.body, {
 	            childList: true,
 	            subtree: true
@@ -2890,11 +2889,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var next = function(err) {
 	      if( finished ) return console.error('next function twice called.', id, err);
 	      finished = true;
-	      
 	      req.url = oURL;
 	      req.parentURL = oParentURL;
 	      req.params = oParams;
-	      boot = false;
 	      
 	      if( err ) {
 	        body.fire('error', {
@@ -2919,6 +2916,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      
 	      onext();
 	    };
+	    
+	    setTimeout(function() {
+	      boot = false;
+	    }, 1);
 	    
 	    var forward = function(err) {
 	      if( err ) return next(err);
