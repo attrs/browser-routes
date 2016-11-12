@@ -294,7 +294,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	  router.on('replace', function(e) {
 	    if( router.debug ) console.info('replaced', e.detail);
-	    lasthref = laststate = e.detail.replaced;
+	    lasthref = e.detail.replaced;
 	    
 	    var req = e.detail.request;
 	    if( req.options.writestate !== false ) router.fire('changestate', {
@@ -333,10 +333,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      writestate: options.writestate
 	    });
 	    
-	    //console.log('href', arguments[0], url););
 	    if( !href ) force = true;
 	    if( router.get('always') === true ) force = true;
-	    if( !force && laststate === parsed.fullpath ) return;
+	    if( !force && lasthref === parsed.fullpath ) return;
 	    
 	    referer = lasthref;
 	    lasthref = parsed.fullpath;
