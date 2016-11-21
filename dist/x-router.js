@@ -357,6 +357,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var reqconfig = {};
 	    
 	    request = router.request = {
+	      referer: referer || '',
 	      app: router,
 	      requesthref: requesthref,
 	      originalhref: requesthref, // @deprecated
@@ -364,7 +365,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	      href: parsed.fullpath,
 	      parsed: parsed,
 	      baseURL: baseURL,
-	      referer: referer,
 	      method: 'get',
 	      url: url || '/',
 	      options: options,
