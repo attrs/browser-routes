@@ -380,7 +380,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      method: 'get',
 	      url: url || '/',
 	      options: options,
-	      hashname: parsed.hash,
+	      hash: parsed.hash,
+	      hashname: parsed.hash, // @deprecated
 	      query: parseQuery(parsed.search),
 	      params: {},
 	      body: body || {},
@@ -552,9 +553,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	      response: response
 	    });
 	    
-	    if( options.writestate !== false && options.replacestate !== true && options.redirect !== true ) {
+	    /*if( options.writestate !== false && options.replacestate !== true && options.redirect !== true ) {
 	      referer = parsed.fullpath;
-	    }
+	    }*/
 	    
 	    router(request, response);
 	    return this;
