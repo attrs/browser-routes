@@ -466,9 +466,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	              response: response
 	            });
 	            
-	            [].forEach.call(target.querySelectorAll(ROUTE_SELECTOR), function(node) {
+	            target.xrouter = router;
+	            
+	            /*[].forEach.call(target.querySelectorAll(ROUTE_SELECTOR), function(node) {
 	              node.xrouter = node.xrouter || router;
-	            });
+	            });*/
 	            
 	            done.apply(this, arguments);
 	          });
@@ -891,7 +893,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    });
 	  }
 	  
-	  
 	  if( !window.xrouter ) {
 	    var isExternal = function(href) {
 	      var p = href.indexOf(':'), s = href.indexOf('/');
@@ -916,11 +917,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	            if( isExternal(href) ) return;
 	            e.preventDefault();
 	            
-	            var router;
-	            if( !name && a.xrouter ) router = a.xrouter;
-	            else router = Application.get(name);
+	            var router = name ? Application.get(name) : (function() {
+	              var parent = a;
+	              while(parent) {
+	                if( parent.xrouter ) return parent.xrouter;
+	                parent = parent.parentNode;
+	              }
+	            })() || Application.current();
 	            
-	            if( !router ) return console.error('[x-router] not found router: ' + (name || '(root)'));
+	            if( !router ) return console.error('[x-router] router not found: ' + (name || '(root)'));
 	            
 	            if( href ) router.href(href, {
 	              srcElement: a
