@@ -333,6 +333,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof body === 'boolean' ) options = {writestate:body}, body = null;
 	    if( typeof options === 'boolean' ) options = {writestate:options};
 	    if( !options || typeof options !== 'object' ) options = {};
+	    if( !requesthref ) return console.error('[x-router] missing url');
+	    if( typeof requesthref === 'number' ) url = url + '';
+	    if( typeof requesthref !== 'string' ) return console.error('[x-router] illegal type of url');
 	    
 	    var fullhref = router.fullhref(requesthref);
 	    var href = fullhref.substring(baseURL.length) || '/';
