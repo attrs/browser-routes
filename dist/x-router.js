@@ -76,10 +76,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 	  }
 	  
-	  if (!String.prototype.startsWith) {
+	  if( !String.prototype.startsWith ) {
 	    String.prototype.startsWith = function(searchString, position){
 	      position = position || 0;
 	      return this.substr(position, searchString.length) === searchString;
+	    };
+	  }
+	  
+	  if( !Array.prototype.indexOf ) {
+	    Array.prototype.indexOf = function(obj, start) {
+	      for (var i = (start || 0); i < this.length; i++) {
+	        if (this[i] == obj) {
+	          return i;
+	        }
+	      }
 	    };
 	  }
 	})();
@@ -924,6 +934,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return (~p && p < s) || href.indexOf('//') === 0 || href.toLowerCase().indexOf('javascript:') === 0;
 	    };
 	    
+	    var ieversion = (function() {
+	      var nav = navigator.userAgent.toLowerCase();
+	      return (nav.indexOf('msie') != -1) ? parseInt(nav.split('msie')[1]) : false;
+	    })();
+	    
 	    var observer;
 	    function bootup() {
 	      function routify(a) {
@@ -940,7 +955,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
 	            
 	            if( isExternal(href) ) return;
-	            e.preventDefault();
+	            if( !ieversion || ieversion > 8 ) e.preventDefault();
 	            
 	            var router = name ? Application.get(name) : (function() {
 	              var parent = a;
