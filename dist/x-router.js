@@ -456,87 +456,106 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    };
 	    
-	    var finished = false;
-	    response = router.response = {
-	      render: function render(src, options, odone) {
-	        if( arguments.length == 2 && typeof options === 'function' ) odone = options, options = null;
-	        
-	        var done = function(err, result) {
-	          if( err ) return odone ? odone.call(this, err) : console.error(err);
-	          var oarg = [].slice.call(arguments, 1);
-	          var arg = [null, target];
-	          if( odone ) odone.apply(this, arg.concat(oarg));
-	        };
-	        
-	        if( !src ) return done(new Error('missing src'));
-	        if( typeof src == 'object' ) options = src, src = null;
-	        if( !options ) options = {};
-	        if( typeof options === 'string' ) options = {target:options};
-	        if( typeof options !== 'object' ) return done(new TypeError('options must be an object or string(target)'));
-	        
-	        var o = {};
-	        for(var k in options) o[k] = options[k];
-	        
-	        var target = o.target || reqconfig['view target'] || config['view target'];
-	        if( typeof target === 'string' ) target = document.querySelector(target);
-	        if( !target ) return done(new Error('view target not found: ' + (o.target || reqconfig['view target'] || config['view target'])));
-	        o.target = target;
-	        
-	        var extname = (typeof src === 'string') ? path.extname(src).substring(1).toLowerCase() : '';
+	    var render = function(src, options, odone) {
+	      if( arguments.length == 2 && typeof options === 'function' ) odone = options, options = null;
+	      
+	      var done = function(err, result) {
+	        if( err ) return odone ? odone.call(this, err) : console.error(err);
+	        var oarg = [].slice.call(arguments, 1);
+	        var arg = [null, target];
+	        if( odone ) odone.apply(this, arg.concat(oarg));
+	      };
+	      
+	      var o = {};
+	      var engine;
+	      
+	      if( !src ) {
+	        return done(new Error('missing src'));
+	      } if( typeof src === 'string' ) {
+	        var extname = path.extname(src).substring(1).toLowerCase();
 	        var defenginename = reqconfig['view engine'] || config['view engine'] || 'default';
-	        var enginename = extname || defenginename;
-	        var engine = router.engine(enginename) || router.engine(defenginename);
+	        var enginename = (options && options.engine) || extname || defenginename;
 	        var base = reqconfig['views'] || config['views'] || '/';
 	        
+	        engine = router.engine(enginename) || router.engine(defenginename);
 	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
-	        if( typeof src === 'string' && !(~src.indexOf('://') || src.indexOf('//') == 0) ) {
+	        
+	        if( !(~src.indexOf('://') || src.indexOf('//') === 0) ) {
 	          if( src.trim()[0] === '/' ) src = '.' + src;
-	          
-	          src = path.join(base, src);
-	        }
-	        
-	        if( src ) {
+	          o.src = path.join(base, src);
+	        } else {
 	          o.src = src;
-	        } else if( !options.html ) {
-	          return done(new Error('cannot resolve src (src or options.html must be defined)'));
 	        }
+	      } else if( typeof src === 'object' ) {
+	        var defenginename = reqconfig['view engine'] || config['view engine'] || 'default';
+	        var enginename = (options && options.engine) || (function() {
+	          for(var k in src) {
+	            if( router.engine(k) ) return k;
+	          }
+	        })();
 	        
-	        if( router.fire('beforerender', {
-	          fullhref: fullhref,
-	          href: parsed.fullpath,
-	          options: o,
-	          src: src,
-	          target: target,
-	          url: request.currentURL,
-	          request: request,
-	          response: response
-	        }) ) {
-	          engine.call(router, o, function(err) {
-	            if( err ) return done(err);
-	            
-	            router.fire('render', {
-	              fullhref: fullhref,
-	              href: parsed.fullpath,
-	              options: o,
-	              src: src,
-	              target: target,
-	              url: request.currentURL,
-	              request: request,
-	              response: response
-	            });
-	            
-	            target.xrouter = router;
-	            
-	            /*[].forEach.call(target.querySelectorAll(ROUTE_SELECTOR), function(node) {
-	              node.xrouter = node.xrouter || router;
-	            });*/
-	            
-	            done.apply(this, arguments);
+	        engine = router.engine(enginename) || router.engine(defenginename);
+	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
+	        
+	        o.html = src[enginename || 'html'];
+	      } else {
+	        return done(new Error('illegal type of src: ' + typeof src));
+	      }
+	      
+	      if( !options ) options = {};
+	      if( typeof options === 'string' ) options = {target:options};
+	      if( typeof options !== 'object' ) return done(new TypeError('options must be an object or string(target)'));
+	      
+	      for(var k in options) o[k] = options[k];
+	      
+	      var target = o.target || reqconfig['view target'] || config['view target'];
+	      if( typeof target === 'string' ) target = document.querySelector(target);
+	      if( !target ) return done(new Error('view target not found: ' + (o.target || reqconfig['view target'] || config['view target'])));
+	      o.target = target;
+	      
+	      if( router.fire('beforerender', {
+	        fullhref: fullhref,
+	        href: parsed.fullpath,
+	        options: o,
+	        src: src,
+	        target: target,
+	        url: request.currentURL,
+	        request: request,
+	        response: response
+	      }) ) {
+	        engine.call(router, o, function(err) {
+	          if( err ) return done(err);
+	          
+	          router.fire('render', {
+	            fullhref: fullhref,
+	            href: parsed.fullpath,
+	            options: o,
+	            src: src,
+	            target: target,
+	            url: request.currentURL,
+	            request: request,
+	            response: response
 	          });
-	        }
-	        
-	        return this;
-	      },
+	          
+	          target.xrouter = router;
+	          done.apply(this, arguments);
+	        });
+	      }
+	      
+	      return this;
+	    };
+	    
+	    render.html = function(html, options, done) {
+	      if( typeof html !== 'string' ) return done && done(new Error('html must be a string'));
+	      
+	      html = {html: html};
+	      render.apply(this, arguments);
+	      return this;
+	    };
+	    
+	    var finished = false;
+	    response = router.response = {
+	      render: render,
 	      get: function(key) {
 	        return reqconfig[key];
 	      },
