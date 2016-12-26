@@ -7,7 +7,8 @@
   "repository": "attrs/x-router",
   "author": "joje <joje.attrs@gmail.com>",
   "scripts": {
-    "prepublish": "gulp"
+    "prepublish": "gulp",
+    "dev": "wpm up ./test -s -d ./test/index.html"
   },
   "license": "MIT",
   "devDependencies": {

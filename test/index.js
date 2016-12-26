@@ -30,7 +30,10 @@ var subrouter = xrouter.Router('subrouter')
 
 var app = xrouter('app')
 .use(function(req, res, next) {
-  console.info('start', req);
+  res.config('key', 'value');
+  console.info('start', req, res.config('key'));
+  
+  res.render.html('Hello!', '#page');
   next();
 })
 .get('/:a', function(req, res, next) {
@@ -57,10 +60,7 @@ var app = xrouter('app')
       console.log('sub2', req.app.id, req.href, req.url, req.parentURL || '(empty)', req.params);
       next();
     })
-    .get('/', function(req, res, next) {
-      console.log('sub2./', req.app.id, req.href, req.url, req.parentURL || '(empty)', req.params);
-      next();
-    })
+    .get('/', 'test/list?b=2')
     .get('/:c', function(req, res, next) {
       console.log('sub2.c', req.app.id, req.href, req.url, req.parentURL || '(empty)', req.params);
       next();
@@ -69,4 +69,4 @@ var app = xrouter('app')
     .use('/:c', subrouter)
   )
 )
-.listen().close().listen();
+.listen();
