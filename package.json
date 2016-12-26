@@ -25,7 +25,7 @@
     "x-router-swig": "^0.5.0"
   },
   "dependencies": {
-    "tinyrouter": "^0.1.0"
+    "tinyrouter": "^0.2.0"
   },
   "files": [
     "package.json",
