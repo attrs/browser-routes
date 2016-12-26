@@ -1,6 +1,6 @@
 {
   "name": "x-router",
-  "version": "0.3.18",
+  "version": "0.4.4",
   "description": "router for browser",
   "main": "lib/index.js",
   "homepage": "https://github.com/attrs/x-router",
@@ -30,7 +30,7 @@
     "x-router-swig": "*"
   },
   "dependencies": {
-    "tinyrouter": "^0.0.2"
+    "tinyrouter": "^0.1.0"
   },
   "files": [
     "package.json",
