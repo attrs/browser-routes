@@ -92,7 +92,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var path = __webpack_require__(2);
+	/* WEBPACK VAR INJECTION */(function(global) {var path = __webpack_require__(2);
 	var URL = __webpack_require__(4);
 	var querystring = __webpack_require__(8);
 	var Router = __webpack_require__(11);
@@ -141,7 +141,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '/done?b=c#hash'));
 	*/
 	
-	var apps = {}, applicationscope = {};
+	var apps = global.xrouter_apps = global.xrouter_apps || {};
+	var applicationscope = global.xrouter_applicationscope = global.xrouter_applicationscope || {};
+	
 	function Application(id) {
 	  var router = Router(id),
 	    debug = meta('debug') === 'true' ? true : false,
@@ -467,6 +469,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 	
 	module.exports = Application;
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ },
 /* 2 */
