@@ -6,6 +6,7 @@ module.exports = {
   output: {
     path: path.join(__dirname, 'dist'),
     filename: 'x-router.js',
+    library: 'xrouter',
     libraryTarget: 'umd',
     umdNamedDefine: true
   },

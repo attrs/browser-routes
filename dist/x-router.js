@@ -10,11 +10,11 @@
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
 	else if(typeof define === 'function' && define.amd)
-		define([], factory);
-	else {
-		var a = factory();
-		for(var i in a) (typeof exports === 'object' ? exports : root)[i] = a[i];
-	}
+		define("xrouter", [], factory);
+	else if(typeof exports === 'object')
+		exports["xrouter"] = factory();
+	else
+		root["xrouter"] = factory();
 })(this, function() {
 return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
@@ -62,305 +62,140 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var path = __webpack_require__(1);
-	var URL = __webpack_require__(3);
-	var Router = __webpack_require__(9);
+	var xrouter = module.exports = __webpack_require__(1);
+	xrouter.initiator.add(__webpack_require__(20));
+	xrouter.initiator.add(__webpack_require__(22));
 	
-	var ROUTE_SELECTOR = '*[route], *[data-route], *[routes], *[data-routes]';
-	
-	
-	(function() {
-	  if( !String.prototype.endsWith ) {
-	    String.prototype.endsWith = function(suffix) {
-	      return this.indexOf(suffix, this.length - suffix.length) !== -1;
-	    };
-	  }
-	  
-	  if( !String.prototype.startsWith ) {
-	    String.prototype.startsWith = function(searchString, position){
-	      position = position || 0;
-	      return this.substr(position, searchString.length) === searchString;
-	    };
-	  }
-	  
-	  if( !Array.prototype.forEach ) {
-	    Array.prototype.forEach = function(callback){
-	      for (var i = 0; i < this.length; i++){
-	        callback.apply(this, [this[i], i, this]);
-	      }
-	    };
-	  }
-	
-	  if( !Array.prototype.indexOf ) {
-	    Array.prototype.indexOf = function(obj, start) {
-	      for (var i = (start || 0); i < this.length; i++) {
-	        if (this[i] == obj) return i;
-	      }
-	      return -1;
-	    };
-	  }
-	  
-	  if( !Array.prototype.lastIndexOf ) {
-	    Array.prototype.lastIndexOf = function( item , index ){ 
-	      var index = ( index ) ? parseInt( index , 10 ) : this.length - 1; 
-	      if ( index < 0 ) index = this.length + index; 
-	      for ( index; index > -1; index-- ){  if ( this[ index ] === item ) return index;  } 
-	      return -1; 
-	    };
-	  }
-	  
-	  if( !String.prototype.trim ) {
-	    String.prototype.trim = function() {
-	      return this.replace(/^\s+|\s+$/g, ''); 
-	    };
-	  }
-	  
-	  if( !document.head ) document.head = document.getElementsByTagName("head")[0];
-	})();
-	
-	if( !document.head ) document.head = document.getElementsByTagName('head')[0];
-	var a = document.createElement('a');
-	function normalize(url) {
-	  if( typeof url !== 'string' ) throw new TypeError('illegal url');
-	  
-	  a.href = url || '';
-	  var fullpath = a.href;
-	  fullpath = fullpath.substring(fullpath.indexOf('://') + 3);
-	  if( !~fullpath.indexOf('/') ) fullpath = '/';
-	  else fullpath = fullpath.substring(fullpath.indexOf('/'));
-	  
-	  var pathname = fullpath;
-	  pathname = ~pathname.indexOf('?') ? pathname.substring(0, pathname.indexOf('?')) : pathname;
-	  pathname = ~pathname.indexOf('#') ? pathname.substring(0, pathname.indexOf('#')) : pathname;
-	  
-	  return {
-	    href: a.href,
-	    protocol: a.protocol,
-	    hostname: a.hostname,
-	    port: a.port,
-	    pathname: pathname,
-	    fullpath: pathname + (a.search ? a.search : '') + (a.hash ? a.hash : ''),
-	    search: a.search,
-	    hash: a.hash,
-	    host: a.host
-	  };
-	}
-	
-	function meta(name, alt) {
-	  var tag = document.head.querySelector('meta[name="xrouter.' + name + '"]');
-	  return (tag && tag.getAttribute('content')) || alt;
-	}
-	
-	function parseQuery(query) {
-	  query = query.trim();
-	  if( query[0] === '?' ) query = query.substring(1);
-	  var match,
-	      pl     = /\+/g,
-	      search = /([^&=]+)=?([^&]*)/g,
-	      decode = function (s) { return decodeURIComponent(s.replace(pl, ' ')); };
-	      
-	  var params = {};
-	  while (match = search.exec(query)) {
-	    var key = decode(match[1]);
-	    var value = decode(match[2]);
-	    if( Array.isArray(params[key]) ) params[key].push(value);
-	    else if( params[key] ) (params[key] = [params[key]]).push(value);
-	    else params[key] = value;
-	  }
-	  return params;
-	}
-	
-	function addEventListener(scope, type, fn, bubble) { 
-	  if( scope.addEventListener ) scope.addEventListener(type, fn, bubble);
-	  else scope.attachEvent(type, fn); 
-	}
-	
-	function capture(o) {
-	  return JSON.parse(JSON.stringify(o));
-	}
-	
-	var Emitter = function(scope) {
-	  var listeners = {};
-	  
-	  var on = function(type, fn) {
-	    listeners[type] = listeners[type] || [];
-	    listeners[type].push(fn);
-	    return this;
-	  };
-	  
-	  var once = function(type, fn) {
-	    var wrap = function(e) {
-	      off(type, wrap);
-	      return fn.call(this, e);
-	    };
-	    body.on(type, wrap);
-	    return this;
-	  };
-	  
-	  var off = function(type, fn) {
-	    var fns = listeners[type];
-	    if( fns ) for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
-	    return this;
-	  };
-	  
-	  var emit = function(type, value) {
-	    var fns = listeners[type];
-	    (fns || []).forEach(function(fn) { fn.call(scope || this, value) });
-	    return this;
-	  };
-	  
-	  return {
-	    on: on,
-	    once: once,
-	    off: off,
-	    emit: emit
-	  };
+	xrouter.href = function() {
+	  return xrouter.connector.href.apply(xrouter.connector, arguments);
 	};
 	
-	
-	var debug = meta('debug') === 'true' ? true : false;
-	
-	// class Application
-	function Application(id) {
-	  id = id || 'root';
-	  if( Application.apps[id] ) return Application.apps[id];
+	xrouter.get = function(id) {
+	  if( !id ) return null;
+	  if( typeof id == 'string' ) return xrouter.apps.get(id);
 	  
-	  var baseURL = '',
-	    router = Router(id),
-	    hashrouter,
+	  id = id[0] || id;
+	  if( id.parentNode ) return (function() {
+	    while(id) {
+	      if( id.xrouter ) return id.xrouter;
+	      id = id.parentNode;
+	    }
+	  })();
+	};
+	
+	if( typeof window === 'object' ) {
+	  xrouter.scanner = __webpack_require__(23).start();
+	  window.xrouter = xrouter;
+	}
+
+/***/ },
+/* 1 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var path = __webpack_require__(2);
+	var URL = __webpack_require__(4);
+	var querystring = __webpack_require__(8);
+	var Router = __webpack_require__(11);
+	var meta = __webpack_require__(14);
+	var connector = __webpack_require__(15);
+	var initiators = [];
+	
+	function abs(curl, url) {
+	  if( !url ) return '/';
+	  if( url[0] === '/' ) return url;
+	  if( !curl ) return '/' + url;
+	  
+	  //console.warn(curl, url, URL.resolve(curl, url));
+	  return URL.resolve(curl, url);
+	}
+	
+	/*
+	console.debug('http://localhost/a/b/c?a=b', abs(null, 'http://localhost:9000/a/b/c?a=b'));
+	console.debug('/a/b/c?a=b', abs(null, '/a/b/c?a=b'));
+	console.debug('/g/d /a/b/c?a=b', abs('/g/d', '/a/b/c?a=b'));
+	console.debug('/g/d/ /a/b/c?a=b', abs('/g/d/', '/a/b/c?a=b'));
+	console.debug('/g/d a/b/c?a=b', abs('/g/d', 'a/b/c?a=b'));
+	console.debug('/g/d/ a/b/c?a=b', abs('/g/d/', 'a/b/c?a=b'));
+	
+	console.debug(abs('/first/second/third/fourth?a=b', '.'));
+	console.debug(abs('/first/second/third/fourth?a=b', './'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../../'));
+	console.debug(abs('/first/second/third/fourth?a=b', '/'));
+	console.debug(abs('/first/second/third/fourth?a=b', 'done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth/?a=b', 'done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', './done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../../done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', '/done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '.'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', './'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../../'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '/'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', 'done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth/?a=b', 'done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', './done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../../done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '/done?b=c#hash'));
+	*/
+	
+	var apps = {}, applicationscope = {};
+	function Application(id) {
+	  var router = Router(id),
+	    debug = meta('debug') === 'true' ? true : false,
+	    config = {},
 	    request,
 	    response,
 	    session = {},
-	    engines = {},
-	    timeout,
-	    config = {},
-	    referer,
 	    history = [],
+	    referer,
 	    currenthref,
-	    emitter = Emitter(router);
+	    committedhref;
+	    
+	  if( debug ) console.debug('app created', id);
+	  if( id ) apps[id] = router;
 	  
-	  Application.apps[id] = router;
+	  // add global initiator
+	  initiators.forEach(function(initiator) {
+	    router.use(initiator.call(router));
+	  });
 	  
-	  router.timeout = function(msec) {
-	    if( typeof msec !== 'number' ) return console.warn('illegal timeout ' + msec);
-	    timeout = msec;
-	  };
-	  
-	  router.emitter = function() {
-	    return emitter;
-	  };
-	  
-	  router.base = function(url) {
-	    if( !arguments.length ) return baseURL;
-	    if( !url ) {
-	      baseURL = '';
-	      return this;
-	    }
-	    baseURL = path.dirname(path.resolve(url, 'index.html'));
+	  // config
+	  router.debug = function(b) {
+	    if( !arguments.length ) return debug;
+	    debug = !!b;
 	    return this;
 	  };
 	  
-	  var _get = router.get;
-	  router.get = function(key) {
+	  router.config = function(key, value) {
 	    if( arguments.length <= 1 ) return config[key];
-	    return _get.apply(router, arguments);
+	    if( value === null || value === undefined ) delete config[key];
+	    else config[key] = value;
+	    return this;
 	  };
 	  
 	  router.set = function(key, value) {
-	    config[key] = value;
-	    if( key === 'debug' ) router.debug = value;
+	    router.config(key, value);
 	    return this;
 	  };
 	  
-	  router.router = function(name) {
-	    return Router(name);
+	  router.session = function() {
+	    return session;
 	  };
 	  
-	  router.util = {
-	    evalhtml: function(html) {
-	      var container = document.createElement('div');
-	      container.innerHTML = html;
-	      var frag = document.createDocumentFragment();
-	      
-	      [].forEach.call(container.childNodes, function(node) {
-	        frag.appendChild(node);
-	      });
-	      
-	      container.innerHTML = '';
-	      return frag;
-	    },
-	    ajax: function(src, done) {
-	      if( !src ) throw new Error('missing src');
-	      var text, error;
-	      var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
-	      xhr.open('GET', src, true);
-	      xhr.onreadystatechange = function(e) {
-	        if( this.readyState == 4 ) {
-	          if( this.status == 0 || (this.status >= 200 && this.status < 300) ) done.call(router, null, this.responseText);
-	          else done.call(router, new Error('[' + this.status + '] ' + this.responseText));
-	        }
-	      };
-	      xhr.send();
-	    }
+	  // history
+	  var pushhistory = function(href, replace) {
+	    if( replace ) history[history.length - 1] = href;
+	    else history.push(href);
+	    
+	    if( history.length > 30 ) history = history.slice(history.length - 30);
 	  };
-	  
-	  router.fullhref = function(url) {
-	    var state = router.state();
-	    var o = url;
-	    if( !url ) return baseURL || '/';
-	    
-	    url = url.trim();
-	    if( url[0] === '/' ) {
-	      url = baseURL + url;
-	    } else {
-	      var currentdir = path.dirname(state);
-	      
-	      if( currentdir.length <= 1 ) currentdir = '';
-	      else currentdir += '/';
-	      
-	      if( !state ) url = baseURL + '/' + url;
-	      else url = baseURL + currentdir + url;
-	    }
-	    
-	    return normalize(url.split('//').join('/')).fullpath;
-	  };
-	  
-	  router.engine = function(name, fn) {
-	    if( arguments.length === 1 ) return engines[name] || Application.engine(name);
-	    engines[name] = fn;
-	    return this;
-	  };
-	    
-	  router.on('replace', function(e) {
-	    if( router.debug ) console.info('replaced', e.detail);
-	    currenthref = e.detail.replaced;
-	    
-	    var request = e.detail.request;
-	    if( request.options.writestate !== false ) {
-	      history[history.length - 1] = e.detail.replaced;
-	      router.fire('changestate', {
-	        state: request.parentURL + request.url,
-	        request: request,
-	        response: e.detail.response
-	      });
-	    }
-	  });
 	  
 	  router.state = function(index) {
 	    index = +index || 0;
 	    return history[history.length - 1 + index];
-	  };
-	  
-	  // @deprecated
-	  router.laststate = function() {
-	    console.warn('[x-router] router.laststate() is deprecated, use router.state() instead');
-	    return history[history.length - 1];
-	  };
-	  
-	  // @deprecated
-	  router.lasthref = function() {
-	    console.warn('[x-router] router.lasthref() is deprecated, use router.referer() instead');
-	    return referer;
 	  };
 	  
 	  router.history = function() {
@@ -371,16 +206,98 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return referer;
 	  };
 	  
-	  router.reload = function(statebase) {
-	    statebase = statebase === false ? false : true;
+	  router.on('writestate', function(e) {
+	    if( e.detail.sub ) return;
+	    router.fire('subapp.writestate', e.detail, 'up', false);
+	  });
+	  
+	  var subappurls = {};
+	  router.on('subapp.writestate', function(e) {
+	    var request = e.detail.request;
+	    var response = e.detail.response;
+	    var parent = request.parent;
+	    var app = request.app;
 	    
-	    if( !statebase ) {
-	      if( currenthref ) return router.href(currenthref, null, {force: true});
-	      return;
+	    var subappurl = subappurls[app.id] = subappurls[app.id] || {};
+	    subappurl.lastpoint = parent.parentURL || subappurl.lastpoint;
+	    
+	    if( subappurl.lastpoint ) {
+	      var href = subappurl.lastpoint + request.href;
+	      pushhistory(href, e.detail.replace);
+	      
+	      router.fire('writestate', {
+	        href: href,
+	        subapp: true,
+	        commit: e.detail.commit,
+	        replace: e.detail.replace,
+	        request: request,
+	        response: response
+	      });
 	    }
+	  });
+	  
+	  // request
+	  router.prepare = function(request, response) {
+	    var resconfig = {};
+	    var finished = false;
+	    var href = request.url;
+	    var parsed = URL.parse(href);
 	    
-	    var state = router.state();
-	    if( state ) return router.href(state, null, {force: true});
+	    var app = {
+	      request: {
+	        parent: request,
+	        app: router,
+	        
+	        method: request.method || 'get',
+	        referer: request.referer,
+	        requesthref: request.requesthref,
+	        fullhref: request.fullhref || request.href,
+	        href: href,
+	        url: href,
+	        parsed: parsed,
+	        hash: parsed.hash,
+	        query: querystring.parse(parsed.query),
+	        
+	        session: session,
+	        global: request.global || applicationscope,
+	        options: request.options,
+	        body: request.body
+	      },
+	      response: {
+	        parent: response,
+	        get: function(key) {
+	          return resconfig[key];
+	        },
+	        set: function(key, value) {
+	          app.response.config(key, value);
+	          return this;
+	        },
+	        config: function(key, value) {
+	          if( !arguments.length ) return resconfig;
+	          if( arguments.length === 1 ) return resconfig[key];
+	          if( value === null || value === undefined ) delete resconfig[key];
+	          else resconfig[key] = value;
+	          return this;
+	        },
+	        end: function() {
+	          var request = app.request;
+	          var response = app.response;
+	          
+	          if( finished ) return console.warn('[x-router] request \'' + request.href + '\' already finished.');
+	          finished = true;
+	          
+	          router.fire('end', {
+	            url: request.url,
+	            href: request.href,
+	            request: request,
+	            response: response
+	          });
+	        }
+	      }
+	    };
+	    
+	    if( debug ) console.debug('app build', router.id, app);
+	    return app;
 	  };
 	  
 	  router.href = function(requesthref, body, options) {
@@ -392,704 +309,167 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof requesthref === 'number' ) url = url + '';
 	    if( typeof requesthref !== 'string' ) return console.error('[x-router] illegal type of url');
 	    
-	    var fullhref = router.fullhref(requesthref);
-	    var href = fullhref.substring(baseURL.length) || '/';
-	    var parsed = normalize(href || '');
-	    var url = parsed.pathname;
+	    var href = abs(router.state(), requesthref);
+	    var body = body;
 	    var force = options.force === true ? true : false;
+	    var writestate = options.writestate === false ? false : true;
+	    var replace = options.replace === true ? true : false;
+	    var pop = options.pop === true ? true : false;
 	    
-	    if( options.writestate === false ) force = true;
-	    if( router.get('always') === true ) force = true;
+	    if( !writestate ) force = true;
+	    if( router.config('always') === true ) force = true;
 	    
-	    if( router.debug ) console.info('href', requesthref, {
-	      fullhref: fullhref,
+	    if( debug ) console.debug('href', requesthref, {
 	      href: href,
-	      url: url,
+	      currenthref: currenthref,
+	      committedhref: committedhref,
 	      force: force,
-	      prevstate: router.state(),
-	      referer: currenthref,
-	      writestate: options.writestate
+	      writestate: writestate,
+	      prevstate: router.state()
 	    });
 	    
-	    if( !force && currenthref === parsed.fullpath ) return;
-	    
-	    referer = currenthref;
-	    currenthref = parsed.fullpath;
-	    if( options.writestate !== false ) {
-	      history.push(parsed.fullpath);
-	      if( history.length > 30 ) history = history.slice(history.length - 30);
+	    if( !force ) {
+	      if( currenthref === href || committedhref === href ) {
+	        if( debug ) console.debug('ignored', href, currenthref, committedhref);
+	      }
 	    }
 	    
-	    if( router.debug ) console.info('request', currenthref);
-	    
-	    hashrouter = Router('hash');
-	    emitter = Emitter(router);
-	    var reqconfig = {};
-	    
-	    request = router.request = {
-	      referer: referer || '',
-	      app: router,
+	    var prepared = router.prepare({
 	      requesthref: requesthref,
-	      originalhref: requesthref, // @deprecated
-	      fullhref: fullhref,
-	      href: parsed.fullpath,
-	      parsed: parsed,
-	      baseURL: baseURL,
-	      method: 'get',
-	      url: url || '/',
+	      referer: currenthref,
+	      url: href,
 	      options: options,
-	      hash: parsed.hash,
-	      hashname: parsed.hash, // @deprecated
-	      query: parseQuery(parsed.search),
-	      params: {},
-	      body: body || {},
-	      session: session,
-	      get: function(key) {
-	        console.warn('Deprecated: use response.get');
-	        return reqconfig[key];
-	      },
-	      set: function(key, value) {
-	        console.warn('Deprecated: use response.set');
-	        if( value === null || value === undefined ) delete reqconfig[key];
-	        else reqconfig[key] = value;
-	        return this;
-	      }
-	    };
+	      body: body
+	    });
 	    
-	    var render = function(src, options, odone) {
-	      if( arguments.length == 2 && typeof options === 'function' ) odone = options, options = null;
-	      
-	      var done = function(err, result) {
-	        if( err ) return odone ? odone.call(this, err) : console.error(err);
-	        var oarg = [].slice.call(arguments, 1);
-	        var arg = [null, target];
-	        if( odone ) odone.apply(this, arg.concat(oarg));
-	      };
-	      
-	      var o = {};
-	      var engine;
-	      
-	      if( !src ) {
-	        return done(new Error('missing src'));
-	      } if( typeof src === 'string' ) {
-	        var extname = path.extname(src).substring(1).toLowerCase();
-	        var defenginename = reqconfig['view engine'] || config['view engine'] || 'default';
-	        var enginename = (options && options.engine) || extname || defenginename;
-	        var base = reqconfig['views'] || config['views'] || '/';
+	    var request = prepared.request;
+	    var response = prepared.response;
+	    
+	    if( router.fire('beforerequest', {
+	      href: href,
+	      request: request,
+	      response: response
+	    }) ) {
+	      if( writestate ) {
+	        pushhistory(href, replace);
 	        
-	        engine = router.engine(enginename) || router.engine(defenginename);
-	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
-	        
-	        if( !(~src.indexOf('://') || src.indexOf('//') === 0) ) {
-	          if( src.trim()[0] === '/' ) src = '.' + src;
-	          o.src = path.join(base, src);
-	        } else {
-	          o.src = src;
-	        }
-	      } else if( typeof src === 'object' ) {
-	        var defenginename = reqconfig['view engine'] || config['view engine'] || 'default';
-	        var enginename = (options && options.engine) || (function() {
-	          for(var k in src) {
-	            if( router.engine(k) ) return k;
-	          }
-	        })();
-	        
-	        engine = router.engine(enginename) || router.engine(defenginename);
-	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
-	        
-	        o.html = src[enginename || 'html'];
-	      } else {
-	        return done(new Error('illegal type of src: ' + typeof src));
+	        //console.error('writestate', router.id, href);
+	        router.fire('writestate', {
+	          href: href,
+	          pop: pop,
+	          replace: replace,
+	          commit: false,
+	          request: request,
+	          response: response
+	        });
 	      }
 	      
-	      if( !options ) options = {};
-	      if( typeof options === 'string' ) options = {target:options};
-	      if( typeof options !== 'object' ) return done(new TypeError('options must be an object or string(target)'));
+	      currenthref = href;
+	      router(request, response);
 	      
-	      for(var k in options) o[k] = options[k];
-	      
-	      var target = o.target || reqconfig['view target'] || config['view target'];
-	      if( typeof target === 'string' ) target = document.querySelector(target);
-	      if( !target ) return done(new Error('view target not found: ' + (o.target || reqconfig['view target'] || config['view target'])));
-	      o.target = target;
-	      
-	      if( router.fire('beforerender', {
-	        fullhref: fullhref,
-	        href: parsed.fullpath,
-	        options: o,
-	        src: src,
-	        target: target,
-	        url: request.currentURL,
+	      router.fire('request', {
+	        href: href,
 	        request: request,
 	        response: response
-	      }) ) {
-	        engine.call(router, o, function(err) {
-	          if( err ) return done(err);
-	          
-	          router.fire('render', {
-	            fullhref: fullhref,
-	            href: parsed.fullpath,
-	            options: o,
-	            src: src,
-	            target: target,
-	            url: request.currentURL,
-	            request: request,
-	            response: response
-	          });
-	          
-	          target.xrouter = router;
-	          done.apply(this, arguments);
-	        });
-	      }
-	      
-	      return this;
-	    };
-	    
-	    render.html = function(html, options, done) {
-	      if( typeof html !== 'string' ) return done && done(new Error('html must be a string'));
-	      
-	      html = {html: html};
-	      render.apply(this, arguments);
-	      return this;
-	    };
-	    
-	    var finished = false;
-	    response = router.response = {
-	      render: render,
-	      get: function(key) {
-	        return reqconfig[key];
-	      },
-	      set: function(key, value) {
-	        if( value === null || value === undefined ) delete reqconfig[key];
-	        else reqconfig[key] = value;
-	        return this;
-	      },
-	      hash: function(hash, fn) {
-	        hashrouter.get('#' + hash, fn);
-	        return this;
-	      },
-	      redirect: function(to, body, options) {
-	        response.end();
-	        options = options || {};
-	        options.redirect = true;
-	        body = body || request.body || {};
-	        
-	        if( to[0] !== '#' && to[0] !== '/' ) {
-	          to = path.resolve(path.join(request.parentURL, request.url), to);
-	        }
-	        
-	        router.fire('redirect', {
-	          fullhref: fullhref,
-	          href: parsed.fullpath,
-	          options: options,
-	          referer: referer,
-	          url: request.currentURL,
-	          to: to,
-	          requested: arguments[0],
-	          request: request,
-	          response: response
-	        });
-	        
-	        router.href(to, body, options);
-	        return this;
-	      },
-	      emit: function(type, value) {
-	        return emmitter.emit(type, value);
-	      },
-	      end: function() {
-	        if( finished ) return console.warn('[x-router] request \'' + request.href + '\' already finished.');
-	        finished = true;
-	        
-	        //router.exechash(req.hash, fire);
-	        router.fire('end', {
-	          fullhref: fullhref,
-	          href: parsed.fullpath,
-	          url: request.currentURL,
-	          request: request,
-	          response: response
-	        });
-	      }
-	    };
-	    
-	    if( timeout > 0 ) {
-	      setTimeout(function() {
-	        if( finished ) return;
-	        console.warn('[x-router] router timeout(' + timeout + ')');
-	        response.end();
-	      }, timeout);
+	      });
+	    } else if( debug ) {
+	      console.debug('[x-router] beforerequest event prevented');
 	    }
 	    
-	    router.fire('request', {
-	      fullhref: fullhref,
-	      href: parsed.fullpath,
-	      url: url,
-	      request: request,
-	      response: response
-	    });
-	    
-	    if( options.writestate !== false ) router.fire('changestate', {
-	      state: url,
-	      request: request,
-	      response: response
-	    });
-	    
-	    /*if( options.writestate !== false && options.replacestate !== true && options.redirect !== true ) {
-	      referer = parsed.fullpath;
-	    }*/
-	    
-	    router(request, response);
 	    return this;
 	  };
 	  
-	  router.on('*', function wrapapp(e) {
-	    e.app = router;
-	    if( !e.stopped ) Application.fire(e);
+	  router.refresh = function(statebase) {
+	    statebase = statebase === false ? false : true;
+	    
+	    if( !statebase ) {
+	      if( currenthref ) return router.href(currenthref, null, {force: true});
+	      return;
+	    }
+	    
+	    var state = router.state();
+	    if( state ) return router.href(state, null, {force: true});
+	  };
+	  
+	  router.on('end', function(e) {
+	    var href = e.detail.href;
+	    var request = e.detail.request;
+	    var response = e.detail.response;
+	    var writestate = e.detail.request.options.writestate === false ? false : true;
+	    
+	    if( writestate ) {
+	      committedhref = href;
+	      pushhistory(href, true);
+	      
+	      router.fire('writestate', {
+	        href: href,
+	        commit: true,
+	        replace: true,
+	        request: request,
+	        response: response
+	      });
+	    }
 	  });
+	  
+	  router.on('replace', function(e) {
+	    if( debug ) console.debug('[x-router] route replaced', e.detail);
+	    if( e.detail.request.app !== router ) return;
+	    
+	    var request = e.detail.request;
+	    if( request.options.writestate !== false ) {
+	      pushhistory(e.detail.href, true);
+	      
+	      router.fire('writestate', {
+	        href: e.detail.href,
+	        replace: true,
+	        commit: false,
+	        request: request,
+	        response: e.detail.response
+	      });
+	    }
+	  });
+	  
+	  router.listen = function(options) {
+	    router.connector = connector.connect(router, options);
+	    return this;
+	  };
+	  
+	  router.close = function() {
+	    connector.disconnect(router);
+	    delete router.connector;
+	    return this;
+	  };
 	  
 	  return router;
 	};
 	
-	// initialize context feature
-	(function() {
-	  var currentapp, apps = {}, listeners = {}, engines = {};
-	  
-	  var current = function(app) {
-	    if( !arguments.length ) return currentapp || apps['root'];
-	    currentapp = app;
+	Application.connector = connector;
+	Application.Router = Router;
+	Application.initiator = {
+	  add: function(fn) {
+	    initiators.push(fn);
 	    return this;
-	  };
-	  
-	  var get = function(name) {
-	    return apps[name || 'root'];
+	  },
+	  remove: function(fn) {
+	    if( ~initiators.indexOf(fn) ) initiators.splice(initiators.indexOf(fn), 1);
+	    return this;
+	  },
+	  list: function() {
+	    return initiators;
 	  }
-	  
-	  var href = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.href.apply(app, arguments);
-	  };
-	  
-	  var reload = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.reload.apply(app, arguments);
-	  };
-	  
-	  var referer = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.referer.apply(app, arguments);
-	  };
-	  
-	  var state = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.state.apply(app, arguments);
-	  };
-	  
-	  // @deprecated
-	  var laststate = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.laststate.apply(app, arguments);
-	  };
-	  
-	  // @deprecated
-	  var lasthref = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.lasthref.apply(app, arguments);
-	  };
-	  
-	  var history = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.history.apply(app, arguments);
-	  };
-	  
-	  var emitter = function() {
-	    var app = current();
-	    if( !app ) return console.warn('[x-router] not yet initialized');
-	    return app.emitter();
-	  };
-	  
-	  var on = function(type, fn) {
-	    listeners[type] = listeners[type] || [];
-	    listeners[type].push(fn);
-	    return this;
-	  };
-	  
-	  var once = function(type, fn) {
-	    var wrap = function(e) {
-	      off(type, wrap);
-	      return fn.call(Application, e);
-	    };
-	    on(type, wrap);
-	    return this;
-	  };
-	  
-	  var off = function(type, fn) {
-	    var fns = listeners[type];
-	    if( fns )
-	      for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
-	    
-	    return this;
-	  };
-	
-	  var fire = function(event) {
-	    if( !listeners[event.type] ) return;
-	    
-	    var stopped = false, prevented = false;
-	    var action = function(listener) {
-	      if( stopped ) return;
-	      listener.call(this, event);
-	      if( event.defaultPrevented === true ) prevented = true;
-	      if( event.stoppedImmediate === true ) stopped = true;
-	    };
-	    
-	    listeners[event.type].forEach(action);
-	    return !prevented;
-	  };
-	  
-	  var engine = function(name, fn) {
-	    if( arguments.length === 1 ) return engines[name];
-	    engines[name] = fn;
-	    return this;
-	  };
-	  
-	  Application.apps = apps;
-	  Application.get = get;
-	  Application.Router = Router;
-	  Application.current = current;
-	  Application.reload = reload;
-	  Application.href = href;
-	  Application.history = history;
-	  Application.referer = referer;
-	  Application.state = state;
-	  Application.engine = engine;
-	  Application.on = on;
-	  Application.once = once;
-	  Application.off = off;
-	  Application.fire = fire;
-	  Application.emitter = emitter;
-	  
-	  // @deprecated
-	  Application.lasthref = lasthref;
-	  Application.laststate = laststate;
-	})();
-	
-	// add default rendering engine
-	Application.engine('default', function(options, done) {
-	  var target = options.target;
-	  var src = options.src;
-	  var html = options.html;
-	  
-	  var render = function(err, html) {
-	    if( err ) return done(err);
-	    if( typeof html === 'object' && html.html ) html = html.html;
-	    if( typeof html !== 'string' ) return done(new Error('html must be a string'));
-	    
-	    target.innerHTML = html;
-	    done();
-	  };
-	  
-	  if( src ) this.util.ajax(src, render);
-	  else if( html ) render(null, html);
-	  else done(new Error('missing src or html'));
-	});
+	};
+	Application.apps = apps;
+	Application.apps.ids = function() {
+	  return Object.keys(apps); 
+	};
+	Application.apps.get = function(id) {
+	  return apps[id]; 
+	};
 	
 	module.exports = Application;
-	
-	// instantiate main routes && trigger
-	(function() {
-	  var mode = meta('mode') || (history.pushState ? 'pushstate' : 'hash');
-	  
-	  if( !~['pushstate', 'hash', 'none', 'auto'].indexOf(mode) ) {
-	    console.warn('[x-router] unsupported mode: ' + mode);
-	    mode = history.pushState ? 'pushstate' : 'hash';
-	  } else if( mode === 'auto' ) {
-	    mode = history.pushState ? 'pushstate' : 'hash';
-	  } else if( mode === 'pushstate' && !history.pushState ) {
-	    console.warn('[x-router] browser does not support `history.pushState`');
-	    mode = 'hash';
-	  }
-	  
-	  if( debug ) console.info('xrouter.mode', meta('mode'), mode);
-	  
-	  var app = function() {
-	    return Application.current();
-	  };
-	  
-	  var validatelocation = function(href) {
-	    href = href || '/';
-	    var base = app().base() || '';
-	    href = normalize(href).fullpath;
-	    if( !href.indexOf(base) ) return href.substring(base.length);
-	    return href;
-	  }
-	  
-	  if( mode === 'pushstate' ) {
-	    if( !history.pushState ) return console.error('[x-router] browser does not support \'history.pushState\'');
-	    
-	    var pushState = history.pushState;
-	    var replaceState = history.replaceState;
-	    var staterefs = {}, lastref, refseq = 0;
-	    
-	    history.pushState = function(body, title, href) {
-	      var seq = (refseq++) + '';
-	      staterefs[seq] = body;
-	      lastref = seq;
-	      pushState.call(history, seq, null, href);
-	      
-	      Application.href(validatelocation(location.href), body);
-	    };
-	    
-	    history.replaceState = function(body, title, href) {
-	      delete staterefs[lastref];
-	      var seq = (refseq++) + '';
-	      staterefs[seq] = body;
-	      lastref = seq;
-	      replaceState.call(history, seq, null, href);
-	      
-	      Application.href(validatelocation(location.href), body, {
-	        replacestate: true
-	      });
-	    };
-	    
-	    window.onpopstate = function(e) {
-	      var body = staterefs[e.state];
-	      delete staterefs[e.state];
-	      Application.href(validatelocation(location.href), body, {pop:true});
-	      
-	      app().fire('writestate', {
-	        href: validatelocation(location.href),
-	        body: body,
-	        push: false,
-	        replace: false,
-	        pop: true
-	      });
-	    };
-	    
-	    var push = function(href, body) {
-	      var seq = (refseq++) + '';
-	      staterefs[seq] = body;
-	      lastref = seq;
-	      pushState.call(history, seq, null, href);
-	      
-	      app().fire('writestate', {
-	        href: href,
-	        body: body,
-	        push: true,
-	        replace: false,
-	        pop: false
-	      });
-	    };
-	    
-	    var replace = function(href, body) {
-	      delete staterefs[lastref];
-	      var seq = (refseq++) + '';
-	      staterefs[seq] = body;
-	      lastref = seq;
-	      replaceState.call(history, seq, null, href);
-	      
-	      app().fire('writestate', {
-	        href: href,
-	        body: body,
-	        push: false,
-	        replace: true,
-	        pop: false
-	      });
-	    };
-	    
-	    Application.on('replace', function(e) {
-	      if( app() !== e.app ) return;
-	      var o = e.detail.request.options;
-	      if( o.pop || o.writestate === false ) return;
-	      var href = path.join(e.app.base(), e.detail.replaced);
-	      replace(href, e.detail.request.body);
-	    });
-	    
-	    Application.on('request', function(e) {
-	      if( app() !== e.app ) return;
-	      var href = e.detail.fullhref;
-	      var body = e.detail.request.body;
-	      var o = e.detail.request.options;
-	      if( o.pop || o.writestate === false ) return;
-	      if( o.replacestate || o.redirect ) replace(href, body);
-	      else push(href, body);
-	    });
-	  } else if( mode === 'hash' ) {
-	    var lasturl;
-	    addEventListener(window, 'hashchange', function() {
-	      var url = location.hash.substring(1);
-	      if( url === lasturl ) return;
-	      if( url ) Application.href(location.hash.substring(1));
-	    });
-	    
-	    var replace = function(url, body) {
-	      lasturl = url;
-	      location.replace('#' + url);
-	      
-	      app().fire('writestate', {
-	        href: url,
-	        body: body,
-	        push: false,
-	        replace: true,
-	        pop: false
-	      });
-	    };
-	    
-	    var push = function(url, body) {
-	      lasturl = url;
-	      location.assign('#' + url);
-	      
-	      app().fire('writestate', {
-	        href: url,
-	        body: body,
-	        push: true,
-	        replace: false,
-	        pop: false
-	      });
-	    };
-	    
-	    Application.on('replace', function(e) {
-	      if( app() !== e.app ) return;
-	      var o = e.detail.request.options;
-	      if( o.pop || o.writestate === false ) return;
-	      var href = path.join(e.app.base(), e.detail.replaced);
-	      replace(href, e.detail.request.body);
-	    });
-	    
-	    Application.on('request', function(e) {
-	      if( app() !== e.app ) return;
-	      var url = e.detail.fullhref;
-	      var body = e.detail.request.body;
-	      var o = e.detail.request.options;
-	      if( o.pop || o.writestate === false ) return;
-	      if( o.replacestate || o.redirect ) replace(url, body);
-	      else push(url, body);
-	    });
-	  }
-	  
-	  if( !window.xrouter ) {
-	    var isExternal = function(href) {
-	      var p = href.indexOf(':'), s = href.indexOf('/');
-	      return (~p && p < s) || href.indexOf('//') === 0 || href.toLowerCase().indexOf('javascript:') === 0;
-	    };
-	    
-	    var ieversion = (function() {
-	      var nav = navigator.userAgent.toLowerCase();
-	      return (nav.indexOf('msie') != -1) ? parseInt(nav.split('msie')[1]) : false;
-	    })();
-	    
-	    var observer;
-	    function bootup() {
-	      function routify(a) {
-	        if( !a.__xrouter_scan__ ) {
-	          a.__xrouter_scan__ = true;
-	          
-	          a.onroute = null;
-	          a.onrouteresponse = null;
-	          a.onrouterequest = null;
-	          
-	          a.onclick = function(e) {
-	            // TODO : 이벤트 순서..테스트 필요
-	            if( e.defaultPrevented ) return;
-	            
-	            var name = a.getAttribute('data-route') || a.getAttribute('route') || a.getAttribute('routes');
-	            var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
-	            var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
-	            
-	            if( isExternal(href) ) return;
-	            if( !ieversion || ieversion > 8 ) e.preventDefault();
-	            
-	            var router = name ? Application.get(name) : (function() {
-	              var parent = a;
-	              while(parent) {
-	                if( parent.xrouter ) return parent.xrouter;
-	                parent = parent.parentNode;
-	              }
-	            })() || Application.current();
-	            
-	            if( !router ) return console.error('[x-router] router not found: ' + (name || '(root)'));
-	            
-	            if( href ) router.href(href, {
-	              srcElement: a
-	            }, {
-	              writestate: ghost ? false : true
-	            });
-	            return false;
-	          };
-	        }
-	        return this;
-	      }
-	      
-	      function scan() {
-	        [].forEach.call(document.querySelectorAll(ROUTE_SELECTOR), routify);
-	        return this;
-	      }
-	      
-	      scan();
-	      
-	      if( app() ) {
-	        if( mode === 'hash' ) Application.href(validatelocation(location.hash.substring(1)));
-	        else if( mode === 'pushstate') Application.href(validatelocation(location.href));
-	      }
-	      
-	      // observe anchor tags
-	      if( meta('observe') !== 'false' ) {
-	        if( window.MutationObserver ) {
-	          if( observer ) observer.disconnect();
-	          observer = new MutationObserver(function(mutations) {
-	            mutations.forEach(function(mutation) {
-	              [].forEach.call(mutation.addedNodes, function(node) {
-	                if( node.nodeType === 1 ) {
-	                  if( node.hasAttribute('route') || node.hasAttribute('routes') ) routify(node);
-	                  if( node.hasAttribute('data-route') || node.hasAttribute('data-routes') ) routify(node);
-	                  if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll(ROUTE_SELECTOR), routify);
-	                }
-	              });
-	            });
-	          });
-	          
-	          observer.observe(document.body, {
-	            childList: true,
-	            subtree: true
-	          });
-	        } else {
-	          window.setInterval(scan, +meta('observe.delay') || 1000);
-	        }
-	      }
-	    }
-	    
-	    if( document.body ) bootup();
-	    else {
-	      if( document.addEventListener ) {
-	        document.addEventListener('DOMContentLoaded', function() {
-	          window.setTimeout(bootup,1);
-	        });
-	      } else if( document.attachEvent ) {
-	        document.attachEvent('onreadystatechange', function () {
-	          if( document.readyState === 'complete' ) window.setTimeout(bootup,1);
-	        });
-	      }
-	    };
-	  
-	    /* will be @deprecated : xrouter.href(...) */
-	    window.route = function() {
-	      console.warn('[x-router] window.route() is deprecated(will be removed in 0.4.x), use window.xrouter.href()');
-	      var current = app();
-	      current.href.apply(current, arguments);
-	    };
-	  
-	    window.xrouter = Application;
-	  }
-	})();
-	
-
 
 /***/ },
-/* 1 */
+/* 2 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {// Copyright Joyent, Inc. and other Node contributors.
@@ -1317,10 +697,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	;
 	
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)))
 
 /***/ },
-/* 2 */
+/* 3 */
 /***/ function(module, exports) {
 
 	// shim for using process in browser
@@ -1506,7 +886,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 3 */
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -1530,7 +910,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 	// USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
-	var punycode = __webpack_require__(4);
+	'use strict';
+	
+	var punycode = __webpack_require__(5);
+	var util = __webpack_require__(7);
 	
 	exports.parse = urlParse;
 	exports.resolve = urlResolve;
@@ -1561,6 +944,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	var protocolPattern = /^([a-z0-9.+-]+:)/i,
 	    portPattern = /:[0-9]*$/,
 	
+	    // Special case for a simple path URL
+	    simplePathPattern = /^(\/\/?(?!\/)[^\?\s]*)(\?[^\s]*)?$/,
+	
 	    // RFC 2396: characters reserved for delimiting URLs.
 	    // We actually just auto-escape these.
 	    delims = ['<', '>', '"', '`', ' ', '\r', '\n', '\t'],
@@ -1577,8 +963,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    nonHostChars = ['%', '/', '?', ';', '#'].concat(autoEscape),
 	    hostEndingChars = ['/', '?', '#'],
 	    hostnameMaxLen = 255,
-	    hostnamePartPattern = /^[a-z0-9A-Z_-]{0,63}$/,
-	    hostnamePartStart = /^([a-z0-9A-Z_-]{0,63})(.*)$/,
+	    hostnamePartPattern = /^[+a-z0-9A-Z_-]{0,63}$/,
+	    hostnamePartStart = /^([+a-z0-9A-Z_-]{0,63})(.*)$/,
 	    // protocols that can allow "unsafe" and "unwise" chars.
 	    unsafeProtocol = {
 	      'javascript': true,
@@ -1602,10 +988,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	      'gopher:': true,
 	      'file:': true
 	    },
-	    querystring = __webpack_require__(6);
+	    querystring = __webpack_require__(8);
 	
 	function urlParse(url, parseQueryString, slashesDenoteHost) {
-	  if (url && isObject(url) && url instanceof Url) return url;
+	  if (url && util.isObject(url) && url instanceof Url) return url;
 	
 	  var u = new Url;
 	  u.parse(url, parseQueryString, slashesDenoteHost);
@@ -1613,15 +999,48 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 	
 	Url.prototype.parse = function(url, parseQueryString, slashesDenoteHost) {
-	  if (!isString(url)) {
+	  if (!util.isString(url)) {
 	    throw new TypeError("Parameter 'url' must be a string, not " + typeof url);
 	  }
+	
+	  // Copy chrome, IE, opera backslash-handling behavior.
+	  // Back slashes before the query string get converted to forward slashes
+	  // See: https://code.google.com/p/chromium/issues/detail?id=25916
+	  var queryIndex = url.indexOf('?'),
+	      splitter =
+	          (queryIndex !== -1 && queryIndex < url.indexOf('#')) ? '?' : '#',
+	      uSplit = url.split(splitter),
+	      slashRegex = /\\/g;
+	  uSplit[0] = uSplit[0].replace(slashRegex, '/');
+	  url = uSplit.join(splitter);
 	
 	  var rest = url;
 	
 	  // trim before proceeding.
 	  // This is to support parse stuff like "  http://foo.com  \n"
 	  rest = rest.trim();
+	
+	  if (!slashesDenoteHost && url.split('#').length === 1) {
+	    // Try fast path regexp
+	    var simplePath = simplePathPattern.exec(rest);
+	    if (simplePath) {
+	      this.path = rest;
+	      this.href = rest;
+	      this.pathname = simplePath[1];
+	      if (simplePath[2]) {
+	        this.search = simplePath[2];
+	        if (parseQueryString) {
+	          this.query = querystring.parse(this.search.substr(1));
+	        } else {
+	          this.query = this.search.substr(1);
+	        }
+	      } else if (parseQueryString) {
+	        this.search = '';
+	        this.query = {};
+	      }
+	      return this;
+	    }
+	  }
 	
 	  var proto = protocolPattern.exec(rest);
 	  if (proto) {
@@ -1760,18 +1179,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	
 	    if (!ipv6Hostname) {
-	      // IDNA Support: Returns a puny coded representation of "domain".
-	      // It only converts the part of the domain name that
-	      // has non ASCII characters. I.e. it dosent matter if
-	      // you call it with a domain that already is in ASCII.
-	      var domainArray = this.hostname.split('.');
-	      var newOut = [];
-	      for (var i = 0; i < domainArray.length; ++i) {
-	        var s = domainArray[i];
-	        newOut.push(s.match(/[^A-Za-z0-9_-]/) ?
-	            'xn--' + punycode.encode(s) : s);
-	      }
-	      this.hostname = newOut.join('.');
+	      // IDNA Support: Returns a punycoded representation of "domain".
+	      // It only converts parts of the domain name that
+	      // have non-ASCII characters, i.e. it doesn't matter if
+	      // you call it with a domain that already is ASCII-only.
+	      this.hostname = punycode.toASCII(this.hostname);
 	    }
 	
 	    var p = this.port ? ':' + this.port : '';
@@ -1798,6 +1210,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    // need to be.
 	    for (var i = 0, l = autoEscape.length; i < l; i++) {
 	      var ae = autoEscape[i];
+	      if (rest.indexOf(ae) === -1)
+	        continue;
 	      var esc = encodeURIComponent(ae);
 	      if (esc === ae) {
 	        esc = escape(ae);
@@ -1851,7 +1265,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  // If it's an obj, this is a no-op.
 	  // this way, you can call url_format() on strings
 	  // to clean up potentially wonky urls.
-	  if (isString(obj)) obj = urlParse(obj);
+	  if (util.isString(obj)) obj = urlParse(obj);
 	  if (!(obj instanceof Url)) return Url.prototype.format.call(obj);
 	  return obj.format();
 	}
@@ -1882,7 +1296,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	
 	  if (this.query &&
-	      isObject(this.query) &&
+	      util.isObject(this.query) &&
 	      Object.keys(this.query).length) {
 	    query = querystring.stringify(this.query);
 	  }
@@ -1926,16 +1340,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	}
 	
 	Url.prototype.resolveObject = function(relative) {
-	  if (isString(relative)) {
+	  if (util.isString(relative)) {
 	    var rel = new Url();
 	    rel.parse(relative, false, true);
 	    relative = rel;
 	  }
 	
 	  var result = new Url();
-	  Object.keys(this).forEach(function(k) {
-	    result[k] = this[k];
-	  }, this);
+	  var tkeys = Object.keys(this);
+	  for (var tk = 0; tk < tkeys.length; tk++) {
+	    var tkey = tkeys[tk];
+	    result[tkey] = this[tkey];
+	  }
 	
 	  // hash is always overridden, no matter what.
 	  // even href="" will remove it.
@@ -1950,10 +1366,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  // hrefs like //foo/bar always cut to the protocol.
 	  if (relative.slashes && !relative.protocol) {
 	    // take everything except the protocol from relative
-	    Object.keys(relative).forEach(function(k) {
-	      if (k !== 'protocol')
-	        result[k] = relative[k];
-	    });
+	    var rkeys = Object.keys(relative);
+	    for (var rk = 0; rk < rkeys.length; rk++) {
+	      var rkey = rkeys[rk];
+	      if (rkey !== 'protocol')
+	        result[rkey] = relative[rkey];
+	    }
 	
 	    //urlParse appends trailing / to urls like http://www.example.com
 	    if (slashedProtocol[result.protocol] &&
@@ -1975,9 +1393,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    // because that's known to be hostless.
 	    // anything else is assumed to be absolute.
 	    if (!slashedProtocol[relative.protocol]) {
-	      Object.keys(relative).forEach(function(k) {
+	      var keys = Object.keys(relative);
+	      for (var v = 0; v < keys.length; v++) {
+	        var k = keys[v];
 	        result[k] = relative[k];
-	      });
+	      }
 	      result.href = result.format();
 	      return result;
 	    }
@@ -2066,14 +1486,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    srcPath = srcPath.concat(relPath);
 	    result.search = relative.search;
 	    result.query = relative.query;
-	  } else if (!isNullOrUndefined(relative.search)) {
+	  } else if (!util.isNullOrUndefined(relative.search)) {
 	    // just pull out the search.
 	    // like href='?foo'.
 	    // Put this after the other two cases because it simplifies the booleans
 	    if (psychotic) {
 	      result.hostname = result.host = srcPath.shift();
 	      //occationaly the auth can get stuck only in host
-	      //this especialy happens in cases like
+	      //this especially happens in cases like
 	      //url.resolveObject('mailto:local1@domain1', 'local2@domain2')
 	      var authInHost = result.host && result.host.indexOf('@') > 0 ?
 	                       result.host.split('@') : false;
@@ -2085,7 +1505,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    result.search = relative.search;
 	    result.query = relative.query;
 	    //to support http.request
-	    if (!isNull(result.pathname) || !isNull(result.search)) {
+	    if (!util.isNull(result.pathname) || !util.isNull(result.search)) {
 	      result.path = (result.pathname ? result.pathname : '') +
 	                    (result.search ? result.search : '');
 	    }
@@ -2112,15 +1532,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	  // then it must NOT get a trailing slash.
 	  var last = srcPath.slice(-1)[0];
 	  var hasTrailingSlash = (
-	      (result.host || relative.host) && (last === '.' || last === '..') ||
-	      last === '');
+	      (result.host || relative.host || srcPath.length > 1) &&
+	      (last === '.' || last === '..') || last === '');
 	
 	  // strip single dots, resolve double dots to parent dir
 	  // if the path tries to go above the root, `up` ends up > 0
 	  var up = 0;
 	  for (var i = srcPath.length; i >= 0; i--) {
 	    last = srcPath[i];
-	    if (last == '.') {
+	    if (last === '.') {
 	      srcPath.splice(i, 1);
 	    } else if (last === '..') {
 	      srcPath.splice(i, 1);
@@ -2155,7 +1575,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    result.hostname = result.host = isAbsolute ? '' :
 	                                    srcPath.length ? srcPath.shift() : '';
 	    //occationaly the auth can get stuck only in host
-	    //this especialy happens in cases like
+	    //this especially happens in cases like
 	    //url.resolveObject('mailto:local1@domain1', 'local2@domain2')
 	    var authInHost = result.host && result.host.indexOf('@') > 0 ?
 	                     result.host.split('@') : false;
@@ -2179,7 +1599,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	
 	  //to support request.http
-	  if (!isNull(result.pathname) || !isNull(result.search)) {
+	  if (!util.isNull(result.pathname) || !util.isNull(result.search)) {
 	    result.path = (result.pathname ? result.pathname : '') +
 	                  (result.search ? result.search : '');
 	  }
@@ -2201,25 +1621,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	  if (host) this.hostname = host;
 	};
-	
-	function isString(arg) {
-	  return typeof arg === "string";
-	}
-	
-	function isObject(arg) {
-	  return typeof arg === 'object' && arg !== null;
-	}
-	
-	function isNull(arg) {
-	  return arg === null;
-	}
-	function isNullOrUndefined(arg) {
-	  return  arg == null;
-	}
 
 
 /***/ },
-/* 4 */
+/* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(module, global) {/*! https://mths.be/punycode v1.3.2 by @mathias */
@@ -2751,10 +2156,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	}(this));
 	
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(5)(module), (function() { return this; }())))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(6)(module), (function() { return this; }())))
 
 /***/ },
-/* 5 */
+/* 6 */
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
@@ -2770,17 +2175,39 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 6 */
+/* 7 */
+/***/ function(module, exports) {
+
+	'use strict';
+	
+	module.exports = {
+	  isString: function(arg) {
+	    return typeof(arg) === 'string';
+	  },
+	  isObject: function(arg) {
+	    return typeof(arg) === 'object' && arg !== null;
+	  },
+	  isNull: function(arg) {
+	    return arg === null;
+	  },
+	  isNullOrUndefined: function(arg) {
+	    return arg == null;
+	  }
+	};
+
+
+/***/ },
+/* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	exports.decode = exports.parse = __webpack_require__(7);
-	exports.encode = exports.stringify = __webpack_require__(8);
+	exports.decode = exports.parse = __webpack_require__(9);
+	exports.encode = exports.stringify = __webpack_require__(10);
 
 
 /***/ },
-/* 7 */
+/* 9 */
 /***/ function(module, exports) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -2866,7 +2293,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 8 */
+/* 10 */
 /***/ function(module, exports) {
 
 	// Copyright Joyent, Inc. and other Node contributors.
@@ -2936,17 +2363,45 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 9 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var path = __webpack_require__(1);
-	var RoutePattern = __webpack_require__(10);
-	var EventObject = __webpack_require__(11);
+	var path = __webpack_require__(2);
+	var URL = __webpack_require__(4);
+	var RoutePattern = __webpack_require__(12);
+	var Events = __webpack_require__(13);
 	
-	function endsWith(str, word) {
-	  var i = str.toLowerCase().indexOf(word);
-	  return i > 0 && i === str.length - word.length;
+	
+	if( !String.prototype.startsWith ) {
+	  String.prototype.startsWith = function(searchString, position){
+	    position = position || 0;
+	    return this.substr(position, searchString.length) === searchString;
+	  };
 	}
+	
+	if( !String.prototype.endsWith ) {
+	  String.prototype.endsWith = function(suffix) {
+	    return this.indexOf(suffix, this.length - suffix.length) !== -1;
+	  };
+	}
+	
+	if( !Array.prototype.forEach ) {
+	  Array.prototype.forEach = function(callback){
+	    for (var i = 0; i < this.length; i++){
+	      callback.apply(this, [this[i], i, this]);
+	    }
+	  };
+	}
+	
+	if( !Array.prototype.indexOf ) {
+	  Array.prototype.indexOf = function(obj, start) {
+	    for (var i = (start || 0); i < this.length; i++) {
+	      if (this[i] == obj) return i;
+	    }
+	    return -1;
+	  };
+	}
+	
 	
 	function patternize(source, ignoresubdir) {
 	  var pettern = RoutePattern.fromString(source);
@@ -2954,7 +2409,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  
 	  return {
 	    match: function(url) {
-	      if( source === '/' ) return ignoresubdir ? true : (source === url);
+	      if( source === '/' && ignoresubdir ) return true;
 	      
 	      if( pettern.matches(url) ) {
 	        return pettern.match(url).namedParams;
@@ -2974,11 +2429,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	function dividepath(axis, full) {
 	  if( axis[0] === '/' ) axis = axis.substring(1);
 	  if( full[0] === '/' ) full = full.substring(1);
-	  if( endsWith(axis, '/') ) axis = axis.substring(0, axis.length - 1);
-	  if( endsWith(full, '/') ) full = full.substring(0, full.length - 1);
+	  if( axis.endsWith('/') ) axis = axis.substring(0, axis.length - 1);
+	  if( full.endsWith('/') ) full = full.substring(0, full.length - 1);
 	  if( !axis ) return {
 	    sub: '/' + full,
-	    parent: '/'
+	    parent: ''
 	  };
 	  
 	  while(~axis.indexOf('//')) axis.split('//').join('/');
@@ -3011,140 +2466,150 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return result;
 	}
 	
-	
-	var routermark = {};
+	var seq = 0;
 	function Router(id) {
-	  id = id || (Math.random() + '') || 'unknwon';
+	  id = id || seq++;
 	  var boot = true;
 	  var routes = [];
-	  var listeners = {};
-	  var error;
 	  
 	  var body = function Router(req, res, onext) {
-	    if( !req.url || req.url[0] !== '/' ) return console.error('illegal state: url not defined in request: ', req.url);
-	    error = null;
-	    onext = onext || function() {};
-	    req.app = req.app || body;
+	    var oRequest = req = req || {};
+	    var oResponse = res = res || {};
 	    
-	    var oParentURL = req.parentURL || '';
-	    var oURL = req.url;
-	    var oParams = req.params || {};
-	    var i = 0, finished = false;
+	    // app 인 경우
+	    if( typeof body.prepare === 'function' ) {
+	      var prepared = body.prepare(req, res);
+	      req = prepared.request;
+	      res = prepared.response;
+	    }
+	    
+	    var oParentURL = req.parentURL = req.parentURL || '';
+	    var oURL = req.url = req.url || '/';
+	    var oHref = req.href = req.href || req.url;
+	    var oParams = req.params = req.params || {};
+	    var finished = false;
 	    
 	    var next = function(err) {
 	      if( finished ) return console.error('next function twice called.', id, err);
 	      finished = true;
-	      req.url = oURL;
+	      boot = false;
 	      req.parentURL = oParentURL;
+	      req.url = oURL;
+	      req.href = oHref;
 	      req.params = oParams;
 	      
 	      if( err ) {
-	        body.fire('error', {
+	        events.fire('error', {
 	          router: body,
 	          href: req.href,
-	          url: req.currentURL,
+	          url: req.url,
 	          request: req,
 	          response: res,
 	          error: err
 	        });
 	        
-	        return onext(err);
+	        return onext && onext(err);
 	      }
 	      
-	      body.fire('notfound', {
+	      events.fire('notfound', {
 	        router: body,
 	        href: req.href,
-	        url: req.currentURL,
+	        url: req.url,
 	        request: req,
 	        response: res
 	      });
 	      
-	      onext();
+	      onext && onext();
 	    };
 	    
-	    setTimeout(function() {
-	      boot = false;
-	    }, 1);
-	    
+	    var index = 0;
 	    var forward = function(err) {
 	      if( err ) return next(err);
 	      
-	      var route = routes[i++];
+	      var route = routes[index++];
+	      
 	      if( !route ) return next();
 	      if( !boot && route.type === 'boot' ) return forward();
 	      //console.log(route, boot, route.pattern, route.pattern.match(req.url));
 	      
+	      var fn = route.fn;
+	      var type = route.type;
+	      var routepath = route.path;
 	      var params = route.pattern && route.pattern.match(req.url);
+	      
 	      if( !params ) return forward();
 	      req.params = mix(oParams, params);
 	      
-	      var fn = route.fn;
-	      var routepath = route.path;
-	      var type = route.type;
-	      
-	      if( typeof fn == 'string' ) {
-	        fn = fn.trim();
-	        if( !fn.indexOf('/') || !fn.indexOf('..') ) {
-	          return res.redirect && res.redirect(path.resolve(req.parentURL, fn));
-	        } else {
-	          var ohref = req.href || '';
-	          var acc = ohref;
-	          acc = ~acc.indexOf('?') ? acc.substring(0, acc.indexOf('?')) : acc;
-	          acc = ~acc.indexOf('#') ? acc.substring(0, acc.indexOf('#')) : acc;
-	          acc = ~acc.indexOf('&') ? acc.substring(0, acc.indexOf('&')) : acc;
-	          acc = ohref.substring(acc.length);
-	          
-	          req.url = oURL = '/' + fn.split('./').join('');
-	          req.href = path.join(req.parentURL, req.url) + acc;
-	          body.fire('replace', {
-	            previous: ohref,
-	            replaced: req.href,
-	            request: req,
-	            response: res
-	          });
-	          return forward();
-	        }
-	      }
-	      
-	      var parentURL = req.parentURL = oParentURL;
-	      var url = req.url = oURL;
-	      var div = dividepath(routepath, url);
-	      var currentURL = path.join(oParentURL, div.parent);
-	      
+	      req.parentURL = oParentURL;
+	      req.url = oURL;
 	      req.boot = boot;
-	      req.currentURL = currentURL;
 	      
-	      if( fn.__router__ ) {
-	        url = req.url = div.sub;
-	        parentURL = req.parentURL = currentURL;
+	      // replace
+	      if( typeof fn == 'string' ) {
+	        if( fn[0] == '/' || fn[0] == '.' ) {
+	          return console.error('[tinyrouter] illegal replace url', fn);
+	        }
+	        
+	        var ohref = req.href;
+	        req.url = oURL = '/' + fn;
+	        req.href = path.join(oParentURL || '/', fn);
+	        
+	        /*console.debug('replace', {
+	          ohref: ohref,
+	          oParentURL: oParentURL,
+	          to: fn,
+	          'req.parentURL': req.parentURL,
+	          'req.href': req.href,
+	          'req.url': req.url
+	        });*/
+	        
+	        events.fire('replace', {
+	          router: body,
+	          previous: ohref,
+	          href: req.href,
+	          url: req.url,
+	          request: req,
+	          response: res
+	        }, 'up');
+	        
+	        return forward();
 	      }
 	      
-	      body.fire('route', {
-	        routetype: type,
+	      // sub routing
+	      if( fn.__router__ || fn.Routable ) {
+	        /*console.info('-------');
+	        console.info('id', fn.id);
+	        console.info('routepath', routepath);
+	        console.info('url', req.url);*/
+	        
+	        var div = dividepath(routepath, URL.parse(req.url).pathname);
+	        req.parentURL = div.parent ? path.join(oParentURL, div.parent) : oParentURL;
+	        req.url = req.url.substring(div.parent.length);
+	        
+	        //console.log('sub routing', routepath, oURL, '->', req.url);
+	        
+	        /*console.info('result parent', req.parentURL);
+	        console.info('result url', req.url);
+	        console.info('div', div);
+	        console.info('-------');*/
+	      }
+	      
+	      events.fire('route', {
+	        router: body,
 	        config: route,
-	        url: currentURL,
 	        href: req.href,
-	        fn: fn,
-	        params: params,
-	        boot: boot,
+	        url: req.url,
 	        request: req,
 	        response: res
-	      });
+	      }, 'up');
 	      
 	      route.fn.apply(body, [req, res, forward]);
 	    };
 	    forward();
 	  };
 	  
+	  body.Routable = true;
 	  body.id = id;
-	  body.__router__ = routermark;
-	  
-	  var adaptchild = function(fn) {
-	    if( fn.__router__ === routermark ) {
-	      fn.parent = body;
-	    }
-	    return fn;
-	  };
 	  
 	  body.exists = function(url) {
 	    var exists = false;
@@ -3160,15 +2625,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return exists;
 	  };
 	  
+	  var add = function(route) {
+	    var fn = route.fn;
+	    if( fn && fn === body ) throw new Error('cannot add router itself: ' + fn.id);
+	    
+	    // adapt each
+	    if( fn.__router__ || fn.Routable ) {
+	      fn.connect && fn.connect(body, 'up');
+	      events.connect(fn, 'down');
+	    }
+	    
+	    routes.push(route);
+	    events.fire('add', {
+	      router: body,
+	      config: route
+	    });
+	  };
+	  
 	  body.use = function(path, fn) {
 	    if( typeof path === 'function' ) fn = path, path = '/';
 	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    
-	    routes.push({
+	    add({
 	      type: 'use',
 	      path: path || '/',
 	      pattern: patternize(path, true),
-	      fn: adaptchild(fn)
+	      fn: fn
 	    });
 	    return this;
 	  };
@@ -3177,7 +2659,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof path === 'function' ) fn = path, path = '/';
 	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    
-	    routes.push({
+	    add({
 	      type: 'get',
 	      path: path || '/',
 	      pattern: patternize(path),
@@ -3190,11 +2672,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof path === 'function' ) fn = path, path = '/';
 	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    
-	    routes.push({
+	    add({
 	      type: 'boot',
 	      path: path || '/',
 	      pattern: patternize(path, true),
-	      fn: adaptchild(fn)
+	      fn: fn
 	    });
 	    return this;
 	  };
@@ -3209,14 +2691,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
-	  body.drop = function(fn) {
+	  body.drop = body.remove = function(fn) {
 	    var dropfns = [];
 	    routes.forEach(function(route) {
 	      if( route.fn === fn ) dropfns.push(route);
 	    });
 	    
 	    dropfns.forEach(function(route) {
+	      if( route.fn ) {
+	        route.fn.disconnect && route.fn.disconnect(body);
+	        events.connect(route.fn, 'down');
+	      }
+	      
 	      routes.splice(routes.indexOf(route), 1);
+	      
+	      events.fire('remove', {
+	        router: body,
+	        config: route
+	      });
 	    });
 	    return this;
 	  };
@@ -3226,72 +2718,38 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
+	  var events = Events(body);
 	  body.on = function(type, fn) {
-	    listeners[type] = listeners[type] || [];
-	    listeners[type].push(fn);
-	    
+	    events.on.apply(events, arguments);
 	    return this;
 	  };
 	  
 	  body.once = function(type, fn) {
-	    var wrap = function(e) {
-	      body.off(type, wrap);
-	      return fn.call(this, e);
-	    };
-	    body.on(type, wrap);
+	    events.once.apply(events, arguments);
 	    return this;
 	  };
 	  
 	  body.off = function(type, fn) {
-	    var fns = listeners[type];
-	    if( fns )
-	      for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
-	    
+	    events.off.apply(events, arguments);
 	    return this;
 	  };
 	  
-	  body.fire = function(type, detail) {
-	    var typename = (type && type.type) || type;
-	    if( !listeners[typename] && !listeners['*'] && !(~['route', 'replace'].indexOf(typename) && body.parent) ) return;
-	    
-	    var event;
-	    if( typeof type === 'string' ) {
-	      event = EventObject.createEvent(type, detail, body);
-	    } else if( type instanceof EventObject ) {
-	      event = type;
-	    } else {
-	      return console.error('illegal arguments, type is must be a string or event', type);
-	    }
-	    event.currentTarget = body;
-	    
-	    var stopped = false, prevented = false;
-	    var action = function(listener, scope) {
-	      if( stopped ) return;
-	      listener.call(scope, event);
-	      if( event.defaultPrevented === true ) prevented = true;
-	      if( event.stoppedImmediate === true ) stopped = true;
-	    };
-	    
-	    (listeners['*'] || []).forEach(action, body);
-	    (listeners[event.type] || []).forEach(action, body);
-	    
-	    if( ~['route', 'replace'].indexOf(event.type) && body.parent ) {
-	      body.parent.fire(event);
-	    }
-	    
-	    return !prevented;
+	  body.fire = function(type, detail, direction, includeself) {
+	    return events.fire.apply(events, arguments);
+	  };
+	  
+	  body.connect = function(router, direction) {
+	    events.connect(router, direction);
+	    return this;
+	  };
+	  
+	  body.disconnect = function(router) {
+	    events.disconnect(router);
+	    return this;
 	  };
 	  
 	  body.hasListener = function(type) {
-	    if( typeof type === 'function' ) {
-	      var found = false;
-	      listeners.forEach(function(fn) {
-	        if( found ) return;
-	        if( fn === type ) found = true;
-	      });
-	      return found;
-	    }
-	    return listeners[type] && listeners[type].length ? true : false;
+	    return events.has.apply(events, arguments);
 	  };
 	  
 	  return body;
@@ -3328,10 +2786,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	*/
 
 /***/ },
-/* 10 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var querystring = __webpack_require__(6);
+	var querystring = __webpack_require__(8);
 	
 	// # Utility functions
 	//
@@ -3704,9 +3162,41 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 11 */
+/* 13 */
 /***/ function(module, exports) {
 
+	if( !Array.prototype.every ) {
+	  Array.prototype.every = function(callbackfn, thisArg) {
+	    var T, k;
+	    
+	    if (this == null) {
+	      throw new TypeError('this is null or not defined');
+	    }
+	    
+	    var O = Object(this);
+	    var len = O.length >>> 0;
+	    if (typeof callbackfn !== 'function') {
+	      throw new TypeError();
+	    }
+	    if (arguments.length > 1) {
+	      T = thisArg;
+	    }
+	    k = 0;
+	    while (k < len) {
+	      var kValue;
+	      if (k in O) {
+	        kValue = O[k];
+	        var testResult = callbackfn.call(T, kValue, k, O);
+	        if (!testResult) {
+	          return false;
+	        }
+	      }
+	      k++;
+	    }
+	    return true;
+	  };
+	}
+	
 	function EventObject(type, detail, target, cancelable) {
 	  this.type = type;
 	  this.detail = detail || {};
@@ -3733,7 +3223,721 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return new EventObject(type, detail, target, cancelable);
 	};
 	
-	module.exports = EventObject;
+	
+	module.exports = function(scope) {
+	  var listeners = {}, paused = false, related = [];
+	  
+	  var on = function(type, fn) {
+	    if( !type || typeof type !== 'string' ) return console.error('type must be a string');
+	    if( typeof fn !== 'function' ) return console.error('listener must be a function');
+	    
+	    var types = type.split(' ');
+	    types.forEach(function(type) {
+	      listeners[type] = listeners[type] || [];
+	      listeners[type].push(fn);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var once = function(type, fn) {
+	    if( !type || typeof type !== 'string' ) return console.error('type must be a string');
+	    if( typeof fn !== 'function' ) return console.error('listener must be a function');
+	    
+	    var types = type.split(' ');
+	    types.forEach(function(type) {
+	      if( !type ) return;
+	      
+	      var wrap = function(e) {
+	        off(type, wrap);
+	        return fn.call(this, e);
+	      };
+	      on(type, wrap);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var off = function(type, fn) {
+	    if( !type || typeof type !== 'string' ) return console.error('type must be a string');
+	    if( typeof fn !== 'function' ) return console.error('listener must be a function');
+	    
+	    var types = type.split(' ');
+	    types.forEach(function(type) {
+	      var fns = listeners[type];
+	      if( fns ) for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var has = function(type) {
+	    if( typeof type === 'function' ) {
+	      var found = false;
+	      listeners.forEach(function(fn) {
+	        if( found ) return;
+	        if( fn === type ) found = true;
+	      });
+	      return found;
+	    }
+	    return listeners[type] && listeners[type].length ? true : false;
+	  };
+	  
+	  var fire = function(type, detail, direction, includeself) {
+	    if( paused ) return;
+	    
+	    var typename = (type && type.type) || type;
+	    
+	    var event;
+	    if( typeof type === 'string' ) {
+	      event = EventObject.createEvent(type, detail, scope);
+	    } else if( type instanceof EventObject ) {
+	      event = type;
+	    } else {
+	      return console.error('illegal arguments, type is must be a string or event', type);
+	    }
+	    event.currentTarget = scope;
+	    
+	    var stopped = false, stopRelated = false, prevented = false;
+	    var action = function(listener) {
+	      if( stopped ) return;
+	      listener.call(scope, event);
+	      if( event.defaultPrevented === true ) prevented = true;
+	      if( event.stopped === true ) stopRelated = true;
+	      if( event.stoppedImmediate === true ) stopped = true, stopRelated = true;
+	    };
+	    
+	    if( !direction || includeself !== false ) {
+	      (listeners['*'] || []).slice().reverse().forEach(action);
+	      (listeners[event.type] || []).slice().reverse().forEach(action);
+	    }
+	    
+	    if( direction && !stopRelated ) {
+	      prevented = !related.every(function(node) {
+	        if( !node.target.fire || (direction !== 'both' && node.direction !== direction) ) return true;
+	        return node.target.fire(type, detail, direction);
+	      });
+	    }
+	    
+	    return !prevented;
+	  };
+	  
+	  var destroy = function() {
+	    listeners = null;
+	    return this;
+	  };
+	  
+	  var pause = function() {
+	    paused = true;
+	    return this;
+	  };
+	  
+	  var resume = function() {
+	    paused = false;
+	    return this;
+	  };
+	  
+	  var connect = function(target, direction) {
+	    if( !target ) return console.warn('illegal argument: target cannot be null', target);
+	    if( !~['up', 'down'].indexOf(direction) ) return console.warn('illegal argument: direction must be "up" or "down" but ', direction);
+	    
+	    related.push({
+	      target: target,
+	      direction: direction
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var disconnect = function(target) {
+	    if( !node ) return this;
+	    
+	    var fordelete = [];
+	    related.forEach(function(node) {
+	      if( node.target === target ) fordelete.push(node);
+	    });
+	    
+	    fordelete.forEach(function(node) {
+	      related.splice(related.indexOf(node), 1);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  return {
+	    on: on,
+	    once: once,
+	    off: off,
+	    fire: fire,
+	    has: has,
+	    destroy: destroy,
+	    pause: pause,
+	    resume: resume,
+	    connect: connect,
+	    disconnect: disconnect
+	  };
+	};
+
+/***/ },
+/* 14 */
+/***/ function(module, exports) {
+
+	module.exports = function(name, alt) {
+	  if( typeof document === 'object' && document.head ) {
+	    var tag = document.head.querySelector('meta[name="xrouter.' + name + '"]');
+	    return (tag && tag.getAttribute('content')) || alt || null;
+	  }
+	  
+	  return alt || null;
+	};
+
+/***/ },
+/* 15 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var meta = __webpack_require__(14);
+	var debug = meta('debug') === 'true' ? true : false;
+	var defmode = meta('mode');
+	
+	var apps = [];
+	var instances = [];
+	
+	module.exports = {
+	  connectors: {
+	    pushstate: __webpack_require__(16),
+	    hashbang: __webpack_require__(18)('!'),
+	    hash: __webpack_require__(18)(),
+	    auto: __webpack_require__(19)
+	  },
+	  href: function(href, body, options) {
+	    var args = arguments;
+	    apps.forEach(function(app) {
+	      app.href.apply(app, args);
+	    });
+	    
+	    return this;
+	  },
+	  instances: function() {
+	    return apps.slice();
+	  },
+	  connect: function(app, options) {
+	    if( !app ) return console.error('missing argument:app');
+	    if( ~apps.indexOf(app) ) return console.error('already listening', app.id);
+	    
+	    options = options || {};
+	    var mode = options.mode || defmode || 'auto';
+	    
+	    if( debug ) console.debug('[x-router] mode:', mode);
+	    var Connector = this.connectors[mode];
+	    if( !Connector ) {
+	      console.warn('[x-router] unsupported mode: ', mode);
+	      Connector = this.connectors['auto'];
+	    }
+	    
+	    var connector = Connector(app);
+	    apps.push(app);
+	    instances.push(connector);
+	    return connector;
+	  },
+	  disconnect: function(app) {
+	    var pos = apps.indexOf(app);
+	    if( ~pos ) apps.splice(pos, 1);
+	    if( ~pos ) instances.splice(pos, 1);
+	    return this;
+	  }
+	};
+
+
+/***/ },
+/* 16 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var URL = __webpack_require__(4);
+	var domready = __webpack_require__(17);
+	
+	var stateseq = 0;
+	function genstateseq(app) {
+	  stateseq = stateseq + 1;
+	  return app.id + ':' + stateseq;
+	}
+	
+	function chref() {
+	  return URL.parse(location.href).path;
+	}
+	
+	module.exports = function(app) {
+	  if( typeof history !== 'object' && !(history && history.pushState) ) return console.error('[x-router] browser does not support \'history.pushState\'');
+	  
+	  var staterefs = {}, laststateid, empty = {};
+	  
+	  var pathbar_popstate = function(e) {
+	    //console.debug('pop', e.state, staterefs[e.state], chref());
+	    if( !(e.state in staterefs) ) return;
+	    var state = staterefs[e.state];
+	    var body = state.body;
+	    if( body === empty ) body = null;
+	    
+	    app.href(chref(), body, {pop:true});
+	  };
+	  
+	  var pathbar_writestate = function(e) {
+	    if( e.detail.pop ) return;
+	  
+	    if( e.detail.replace ) {
+	      //delete staterefs[laststateid];
+	      var stateid = laststateid = genstateseq(app);
+	      staterefs[stateid] = e.detail.body || empty;
+	      
+	      //console.debug('replace', stateid, e.detail.href);
+	      history.replaceState(stateid, null, e.detail.href);
+	    } else {
+	      var stateid = laststateid = genstateseq(app);
+	      staterefs[stateid] = e.detail.body || empty;
+	      
+	      // TODO: 현재의 브라우저 경로와 같은 href 라면 replaceState 를 하는게 맞을지.
+	      
+	      //console.debug('push', stateid, e.detail.href);
+	      history.pushState(stateid, null, e.detail.href);
+	    }
+	  };
+	  
+	  window.addEventListener('popstate', pathbar_popstate);
+	  app.on('writestate', pathbar_writestate);
+	  
+	  domready(function() {
+	    app.href(chref());
+	  });
+	  
+	  return {
+	    disconnect: function(app) {
+	      document.removeEventListener('popstate', pathbar_popstate);
+	      app.off('writestate', pathbar_writestate);
+	    }
+	  }
+	};
+
+
+/***/ },
+/* 17 */
+/***/ function(module, exports) {
+
+	module.exports = function(fn) {
+	  if( document.body ) {
+	    fn();
+	  } else {
+	    if( document.addEventListener ) {
+	      document.addEventListener('DOMContentLoaded', function() {
+	        window.setTimeout(fn, 1);
+	      });
+	    } else if( document.attachEvent ) {
+	      document.attachEvent('onreadystatechange', function () {
+	        if( document.readyState === 'complete' ) window.setTimeout(fn, 1);
+	      });
+	    }
+	  }
+	};
+
+/***/ },
+/* 18 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var domready = __webpack_require__(17);
+	
+	function chref(n) {
+	  return location.hash.substring(n) || '/';
+	}
+	
+	module.exports = function(prefix) {
+	  prefix = '#' + (prefix || '');
+	  var n = prefix.length;
+	  
+	  return function(app) {
+	    var lasthref;
+	    var hashchangelistener = function() {
+	      var href = chref(n);
+	      if( location.hash.startsWith(prefix + '/') && lasthref !== href ) app.href(href);
+	    };
+	  
+	    if( window.addEventListener ) window.addEventListener('hashchange', hashchangelistener);
+	    else window.attachEvent('hashchange', hashchangelistener);
+	  
+	    var writestatelistener = function(e) {
+	      if( e.detail.pop ) return;
+	      
+	      var href = prefix + e.detail.href;
+	      if( href === lasthref ) return;
+	      
+	      lasthref = e.detail.href;
+	      if( e.detail.replace ) {
+	        location.replace(href);
+	      } else {
+	        location.assign(href);
+	      }
+	    };
+	  
+	    app.on('writestate', writestatelistener);
+	  
+	    domready(function() {
+	      if( location.hash.startsWith(prefix + '/') ) app.href(chref(n));
+	      else app.href('/');
+	    });
+	  
+	    return {
+	      disconnect: function(app) {
+	        if( window.addEventListener ) window.removeEventListener('hashchange', hashchangelistener);
+	        else window.detachEvent('hashchange', hashchangelistener);
+	        app.off('writestate', writestatelistener);
+	      }
+	    }
+	  };
+	};
+
+/***/ },
+/* 19 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = function(app) {
+	  if( typeof history == 'object' && history && history.pushState )
+	    return __webpack_require__(16)(app);
+	  
+	  return __webpack_require__(18)('!')(app);
+	};
+
+/***/ },
+/* 20 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var path = __webpack_require__(2);
+	var ajax = __webpack_require__(21);
+	
+	function DefaultRenderer(options, done) {
+	  var target = options.target;
+	  var src = options.src;
+	  var html = options.html;
+	  
+	  var render = function(err, html) {
+	    if( err ) return done(err);
+	    if( typeof html === 'object' && html.html ) html = html.html;
+	    if( typeof html !== 'string' ) return done(new Error('html must be a string'));
+	    
+	    target.innerHTML = html;
+	    done();
+	  };
+	  
+	  if( src ) ajax(src, render);
+	  else if( html ) render(null, html);
+	  else done(new Error('missing src or html'));
+	};
+	
+	
+	module.exports = function() {
+	  var engines = {
+	    default: DefaultRenderer
+	  };
+	  
+	  this.engine = function(name, fn) {
+	    if( arguments.length === 1 ) return engines[name];
+	    engines[name] = fn;
+	    return this;
+	  };
+	  
+	  return function(request, response, next) {
+	    var app = request.app;
+	    response.render = function(src, options, odone) {
+	      if( arguments.length == 2 && typeof options === 'function' ) odone = options, options = null;
+	      
+	      var done = function(err, result) {
+	        if( err ) return odone ? odone.call(this, err) : console.error(err);
+	        var oarg = [].slice.call(arguments, 1);
+	        var arg = [null, target];
+	        if( odone ) odone.apply(this, arg.concat(oarg));
+	      };
+	      
+	      var o = {};
+	      var engine;
+	      
+	      if( !src ) {
+	        return done(new Error('missing src'));
+	      } if( typeof src === 'string' ) {
+	        var extname = path.extname(src).substring(1).toLowerCase();
+	        var defenginename = response.config('view engine') || app.config('view engine') || 'default';
+	        var enginename = (options && options.engine) || extname || defenginename;
+	        var base = response.config('views') || app.config('views') || '/';
+	        
+	        engine = app.engine(enginename) || app.engine(defenginename);
+	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
+	        
+	        if( !(~src.indexOf('://') || src.indexOf('//') === 0) ) {
+	          if( src[0] === '/' ) src = '.' + src;
+	          o.src = path.join(base, src);
+	        } else {
+	          o.src = src;
+	        }
+	      } else if( typeof src === 'object' ) {
+	        var defenginename = response.config('view engine') || app.config('view engine') || 'default';
+	        var enginename = (options && options.engine) || (function() {
+	          for(var k in src) {
+	            if( app.engine(k) ) return k;
+	          }
+	        })();
+	        
+	        engine = app.engine(enginename) || app.engine(defenginename);
+	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
+	        
+	        o.html = src.html;
+	      } else {
+	        return done(new Error('illegal type of src: ' + typeof src));
+	      }
+	      
+	      if( !options ) options = {};
+	      if( typeof options === 'string' ) options = {target:options};
+	      if( typeof options !== 'object' ) return done(new TypeError('options must be an object or string(target)'));
+	      
+	      for(var k in options) o[k] = options[k];
+	      
+	      var target = o.target || response.config('view target') || app.config('view target');
+	      if( typeof target === 'string' ) target = document.querySelector(target);
+	      if( !target ) return done(new Error('view target not found: ' + (o.target || response.config('view target') || app.config('view target'))));
+	      o.target = target;
+	      
+	      if( app.fire('beforerender', {
+	        href: request.href,
+	        options: o,
+	        src: src,
+	        target: target,
+	        url: request.url,
+	        request: request,
+	        response: response
+	      }) ) {
+	        setTimeout(function() {
+	          engine.call(app, o, function(err) {
+	            if( err ) return done(err);
+	            
+	            app.fire('render', {
+	              href: request.href,
+	              options: o,
+	              src: src,
+	              target: target,
+	              url: request.url,
+	              request: request,
+	              response: response
+	            });
+	            
+	            target.xrouter = app;
+	            
+	            done.apply(this, arguments);
+	            if( willbeend ) response.end();
+	          });
+	        }, 1);
+	      }
+	    
+	      var willbeend = false;
+	      return {
+	        end: function() {
+	          willbeend = true;
+	        }
+	      };
+	    };
+	    
+	    response.render.html = function(html, options, done) {
+	      if( typeof html !== 'string' ) return done && done(new Error('html must be a string'));
+	      
+	      html = {html: html};
+	      return response.render.apply(this, arguments);
+	    };
+	    
+	    next();
+	  };
+	};
+
+/***/ },
+/* 21 */
+/***/ function(module, exports) {
+
+	module.exports = function(src, done, options) {
+	  if( !src ) throw new Error('missing src');
+	  if( arguments.length == 2 && typeof done !== 'function' ) options = done, done = null;
+	  if( typeof options == 'boolean' ) options = {sync:options};
+	  
+	  var text,
+	    error,
+	    sync = (options && options.sync) === true ? true : false,
+	    method = (options && options.method) || 'GET';
+	    scope = (options && options.scope) || this;
+	  
+	  var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+	  xhr.open(method, src, !sync);
+	  
+	  if( options ) {
+	    for(var k in options.headers) xhr.setRequestHeader(k, options.headers);
+	    if( options.mimetype ) xhr.overrideMimeType(options.mimetype);
+	  }
+	  
+	  xhr.onreadystatechange = function(e) {
+	    if( this.readyState == 4 ) {
+	      if( this.status == 0 || (this.status >= 200 && this.status < 300) ) {
+	        text = this.responseText;
+	        done && done.call(scope, null, text, xhr);
+	      } else {
+	        error = new Error('[' + this.status + '] ' + this.responseText);
+	        done && done.call(scope, error, null, xhr);
+	      }
+	    }
+	  };
+	  
+	  if( options && options.payload ) xhr.send(JSON.stringify(options.payload));
+	  else xhr.send();
+	  
+	  if( error ) throw error;
+	  return text;
+	};
+
+/***/ },
+/* 22 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var path = __webpack_require__(2);
+	
+	module.exports = function() {
+	  return function(request, response, next) {
+	    response.redirect = function(href, body, options) {
+	      response.end();
+	      
+	      options = options || {};
+	      options.redirect = true;
+	      body = body || request.body;
+	      
+	      if( href[0] !== '#' && href[0] !== '/' ) {
+	        href = path.resolve(path.join(request.parentURL, request.url), href);
+	      }
+	      
+	      request.app.fire('redirect', {
+	        options: options,
+	        body: body,
+	        href: href,
+	        request: request,
+	        response: response
+	      });
+	      
+	      request.app.href(href, body, options);
+	      return this;
+	    };
+	    
+	    next();
+	  };
+	};
+
+
+/***/ },
+/* 23 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var meta = __webpack_require__(14);
+	var domready = __webpack_require__(17);
+	var app = __webpack_require__(1);
+	var connector = __webpack_require__(15);
+	var ieversion = __webpack_require__(24);
+	
+	var debug = meta('debug') === 'true' ? true : false;
+	var ROUTE_SELECTOR = '*[route], *[data-route], *[routes], *[data-routes]';
+	if( !document.head ) document.head = document.getElementsByTagName('head')[0];
+	
+	function isExternal(href) {
+	  var p = href.indexOf(':'), s = href.indexOf('/');
+	  return (~p && p < s) || href.indexOf('//') === 0 || href.toLowerCase().indexOf('javascript:') === 0;
+	};
+	
+	function routify(a) {
+	  if( !a.__xrouter_scan__ ) {
+	    a.__xrouter_scan__ = true;
+	    
+	    a.onroute = null;
+	    a.onrouteresponse = null;
+	    a.onrouterequest = null;
+	    
+	    a.onclick = function(e) {
+	      var name = a.getAttribute('data-route') || a.getAttribute('route');
+	      var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
+	      var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
+	      
+	      if( isExternal(href) ) return;
+	      if( !ieversion || ieversion > 8 ) e.preventDefault();
+	      
+	      var router = name ? app.get(name) : (function() {
+	        var parent = a;
+	        while(parent) {
+	          if( parent.xrouter ) return parent.xrouter;
+	          parent = parent.parentNode;
+	        }
+	      })();
+	      
+	      if( !router && name ) {
+	        console.error('[x-router] not exists router: ' + name);
+	      } else if( href ) {
+	        (router || connector).href(href, {
+	          srcElement: a
+	        }, {
+	          writestate: ghost ? false : true
+	        });
+	      }
+	      
+	      return false;
+	    };
+	  }
+	  return this;
+	}
+	
+	function scan() {
+	  [].forEach.call(document.querySelectorAll(ROUTE_SELECTOR), routify);
+	  return this;
+	}
+	
+	var observer;
+	function bootup() {
+	  scan();
+	  
+	  // observe anchor tags
+	  if( meta('observe') !== 'false' ) {
+	    if( window.MutationObserver ) {
+	      if( observer ) observer.disconnect();
+	      observer = new MutationObserver(function(mutations) {
+	        mutations.forEach(function(mutation) {
+	          [].forEach.call(mutation.addedNodes, function(node) {
+	            if( node.nodeType === 1 ) {
+	              if( node.hasAttribute('route') || node.hasAttribute('routes') ) routify(node);
+	              if( node.hasAttribute('data-route') || node.hasAttribute('data-routes') ) routify(node);
+	              if( node.querySelectorAll ) [].forEach.call(node.querySelectorAll(ROUTE_SELECTOR), routify);
+	            }
+	          });
+	        });
+	      });
+	      
+	      observer.observe(document.body, {
+	        childList: true,
+	        subtree: true
+	      });
+	    } else {
+	      window.setInterval(scan, +meta('observe.delay') || 1000);
+	    }
+	  }
+	}
+	
+	module.exports = {
+	  start: function() {
+	    domready(bootup);
+	    return this;
+	  },
+	  scan: scan
+	};
+
+/***/ },
+/* 24 */
+/***/ function(module, exports) {
+
+	module.exports = (function() {
+	  var nav = navigator.userAgent.toLowerCase();
+	  return (nav.indexOf('msie') != -1) ? parseInt(nav.split('msie')[1]) : false;
+	})();
 
 /***/ }
 /******/ ])
