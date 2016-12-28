@@ -1,14 +1,15 @@
 {
   "name": "x-router",
   "version": "0.4.4",
-  "description": "router for browser",
+  "description": "frontend router",
   "main": "lib/index.js",
   "homepage": "https://github.com/attrs/x-router",
   "repository": "attrs/x-router",
   "author": "joje <joje.attrs@gmail.com>",
   "scripts": {
     "prepublish": "gulp",
-    "dev": "wpm up ./test -s -d ./test/index.html"
+    "dev": "wpm up ./test -s -d ./test/exam1.html",
+    "2": "wpm up ./test -s -d ./test/exam2.html"
   },
   "license": "MIT",
   "devDependencies": {
@@ -23,7 +24,7 @@
   },
   "dependencies": {
     "tinyajax": "^0.1.0",
-    "tinyrouter": "^0.2.0"
+    "tinyrouter": "^0.2.1"
   },
   "files": [
     "package.json",

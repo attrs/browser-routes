@@ -62,66 +62,17 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	(function() {
-	  if( !String.prototype.endsWith ) {
-	    String.prototype.endsWith = function(suffix) {
-	      return this.indexOf(suffix, this.length - suffix.length) !== -1;
-	    };
-	  }
-	  
-	  if( !String.prototype.startsWith ) {
-	    String.prototype.startsWith = function(searchString, position){
-	      position = position || 0;
-	      return this.substr(position, searchString.length) === searchString;
-	    };
-	  }
-	  
-	  if( !Array.prototype.forEach ) {
-	    Array.prototype.forEach = function(callback){
-	      for (var i = 0; i < this.length; i++){
-	        callback.apply(this, [this[i], i, this]);
-	      }
-	    };
-	  }
-	  
-	  if( !Array.prototype.indexOf ) {
-	    Array.prototype.indexOf = function(obj, start) {
-	      for (var i = (start || 0); i < this.length; i++) {
-	        if (this[i] == obj) return i;
-	      }
-	      return -1;
-	    };
-	  }
-	  
-	  if( !Array.prototype.lastIndexOf ) {
-	    Array.prototype.lastIndexOf = function( item , index ){ 
-	      var index = ( index ) ? parseInt( index , 10 ) : this.length - 1; 
-	      if ( index < 0 ) index = this.length + index; 
-	      for ( index; index > -1; index-- ){  if ( this[ index ] === item ) return index;  } 
-	      return -1; 
-	    };
-	  }
-	  
-	  if( !String.prototype.trim ) {
-	    String.prototype.trim = function() {
-	      return this.replace(/^\s+|\s+$/g, ''); 
-	    };
-	  }
-	  
-	  if( !document.head ) document.head = document.getElementsByTagName('head')[0];
-	})();
-	
-	
 	var xrouter = module.exports = __webpack_require__(1);
-	xrouter.middleware.add(__webpack_require__(16));
-	xrouter.middleware.add(__webpack_require__(18));
-	xrouter.scanner = __webpack_require__(19).start();
+	xrouter.initiator.add(__webpack_require__(20));
+	xrouter.initiator.add(__webpack_require__(22));
+	
 	xrouter.href = function() {
-	  return xrouter.pathbar.href.apply(xrouter.pathbar, arguments);
+	  return xrouter.connector.href.apply(xrouter.connector, arguments);
 	};
+	
 	xrouter.get = function(id) {
 	  if( !id ) return null;
-	  if( typeof id == 'string' ) return xrouter.get(id);
+	  if( typeof id == 'string' ) return xrouter.apps.get(id);
 	  
 	  id = id[0] || id;
 	  if( id.parentNode ) return (function() {
@@ -133,6 +84,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 	
 	if( typeof window === 'object' ) {
+	  xrouter.scanner = __webpack_require__(23).start();
 	  window.xrouter = xrouter;
 	}
 
@@ -142,34 +94,54 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var path = __webpack_require__(2);
 	var URL = __webpack_require__(4);
+	var querystring = __webpack_require__(8);
 	var Router = __webpack_require__(11);
 	var meta = __webpack_require__(14);
-	var pathbar = __webpack_require__(15);
-	var middlewares = [];
+	var connector = __webpack_require__(15);
+	var initiators = [];
 	
 	function abs(curl, url) {
 	  if( !url ) return '/';
 	  if( url[0] === '/' ) return url;
+	  if( !curl ) return '/' + url;
 	  
-	  var url = URL.parse(url).path;
-	  if( url[0] !== '/' ) url = '/' + url;
-	  
-	  if( !curl ) return url;
-	  var cdir = path.dirname(curl + 'a');
-	  if( cdir === '/' ) cdir = '';
-	  return cdir + url;
+	  //console.warn(curl, url, URL.resolve(curl, url));
+	  return URL.resolve(curl, url);
 	}
 	
 	/*
-	console.log('http://localhost:9000/a/b/c?a=b', abs(null, 'http://localhost:9000/a/b/c?a=b'));
-	console.log('/a/b/c?a=b', abs(null, '/a/b/c?a=b'));
-	console.log('/g/d /a/b/c?a=b', abs('/g/d', '/a/b/c?a=b'));
-	console.log('/g/d/ /a/b/c?a=b', abs('/g/d/', '/a/b/c?a=b'));
-	console.log('/g/d a/b/c?a=b', abs('/g/d', 'a/b/c?a=b'));
-	console.log('/g/d/ a/b/c?a=b', abs('/g/d/', 'a/b/c?a=b'));
+	console.debug('http://localhost/a/b/c?a=b', abs(null, 'http://localhost:9000/a/b/c?a=b'));
+	console.debug('/a/b/c?a=b', abs(null, '/a/b/c?a=b'));
+	console.debug('/g/d /a/b/c?a=b', abs('/g/d', '/a/b/c?a=b'));
+	console.debug('/g/d/ /a/b/c?a=b', abs('/g/d/', '/a/b/c?a=b'));
+	console.debug('/g/d a/b/c?a=b', abs('/g/d', 'a/b/c?a=b'));
+	console.debug('/g/d/ a/b/c?a=b', abs('/g/d/', 'a/b/c?a=b'));
+	
+	console.debug(abs('/first/second/third/fourth?a=b', '.'));
+	console.debug(abs('/first/second/third/fourth?a=b', './'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../../'));
+	console.debug(abs('/first/second/third/fourth?a=b', '/'));
+	console.debug(abs('/first/second/third/fourth?a=b', 'done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth/?a=b', 'done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', './done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', '../../done?b=c#hash'));
+	console.debug(abs('/first/second/third/fourth?a=b', '/done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '.'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', './'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../../'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '/'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', 'done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth/?a=b', 'done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', './done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '../../done?b=c#hash'));
+	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '/done?b=c#hash'));
 	*/
 	
-	var apps = {};
+	var apps = {}, applicationscope = {};
 	function Application(id) {
 	  var router = Router(id),
 	    debug = meta('debug') === 'true' ? true : false,
@@ -179,14 +151,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    session = {},
 	    history = [],
 	    referer,
-	    currenthref;
+	    currenthref,
+	    committedhref;
 	    
-	  if( debug ) console.info('app created', id);
+	  if( debug ) console.debug('app created', id);
 	  if( id ) apps[id] = router;
 	  
-	  // add global middleware
-	  middlewares.forEach(function(middleware) {
-	    router.use(middleware.call(router));
+	  // add global initiator
+	  initiators.forEach(function(initiator) {
+	    router.use(initiator.call(router));
 	  });
 	  
 	  // config
@@ -213,6 +186,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  // history
+	  var pushhistory = function(href, replace) {
+	    if( replace ) history[history.length - 1] = href;
+	    else history.push(href);
+	    
+	    if( history.length > 30 ) history = history.slice(history.length - 30);
+	  };
+	  
 	  router.state = function(index) {
 	    index = +index || 0;
 	    return history[history.length - 1 + index];
@@ -226,23 +206,65 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return referer;
 	  };
 	  
-	  // href
-	  router.app = function(request, response) {
+	  router.on('writestate', function(e) {
+	    if( e.detail.sub ) return;
+	    router.fire('subapp.writestate', e.detail, 'up', false);
+	  });
+	  
+	  var subappurls = {};
+	  router.on('subapp.writestate', function(e) {
+	    var request = e.detail.request;
+	    var response = e.detail.response;
+	    var parent = request.parent;
+	    var app = request.app;
+	    
+	    var subappurl = subappurls[app.id] = subappurls[app.id] || {};
+	    subappurl.lastpoint = parent.parentURL || subappurl.lastpoint;
+	    
+	    if( subappurl.lastpoint ) {
+	      var href = subappurl.lastpoint + request.href;
+	      pushhistory(href, e.detail.replace);
+	      
+	      router.fire('writestate', {
+	        href: href,
+	        subapp: true,
+	        commit: e.detail.commit,
+	        replace: e.detail.replace,
+	        request: request,
+	        response: response
+	      });
+	    }
+	  });
+	  
+	  // request
+	  router.prepare = function(request, response) {
 	    var resconfig = {};
 	    var finished = false;
+	    var href = request.url;
+	    var parsed = URL.parse(href);
+	    
 	    var app = {
 	      request: {
-	        requesthref: request.requesthref,
+	        parent: request,
+	        app: router,
+	        
 	        method: request.method || 'get',
 	        referer: request.referer,
-	        fullhref: request.href,
-	        href: request.href,
-	        url: request.url,
+	        requesthref: request.requesthref,
+	        fullhref: request.fullhref || request.href,
+	        href: href,
+	        url: href,
+	        parsed: parsed,
+	        hash: parsed.hash,
+	        query: querystring.parse(parsed.query),
+	        
 	        session: session,
+	        global: request.global || applicationscope,
 	        options: request.options,
-	        body: request.body,
+	        body: request.body
 	      },
 	      response: {
+	        parent: response,
 	        get: function(key) {
 	          return resconfig[key];
 	        },
@@ -258,6 +280,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	          return this;
 	        },
 	        end: function() {
+	          var request = app.request;
+	          var response = app.response;
+	          
 	          if( finished ) return console.warn('[x-router] request \'' + request.href + '\' already finished.');
 	          finished = true;
 	          
@@ -271,7 +296,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      }
 	    };
 	    
-	    if( debug ) console.info('app build', router.id, app);
+	    if( debug ) console.debug('app build', router.id, app);
 	    return app;
 	  };
 	  
@@ -289,24 +314,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var force = options.force === true ? true : false;
 	    var writestate = options.writestate === false ? false : true;
 	    var replace = options.replace === true ? true : false;
+	    var pop = options.pop === true ? true : false;
 	    
 	    if( !writestate ) force = true;
 	    if( router.config('always') === true ) force = true;
 	    
-	    if( debug ) console.info('href', requesthref, {
-	      currenthref: currenthref,
+	    if( debug ) console.debug('href', requesthref, {
 	      href: href,
+	      currenthref: currenthref,
+	      committedhref: committedhref,
 	      force: force,
 	      writestate: writestate,
 	      prevstate: router.state()
 	    });
 	    
-	    if( !force && currenthref === href ) return;
+	    if( !force ) {
+	      if( currenthref === href || committedhref === href ) {
+	        if( debug ) console.debug('ignored', href, currenthref, committedhref);
+	      }
+	    }
 	    
-	    var prepared = router.app({
+	    var prepared = router.prepare({
 	      requesthref: requesthref,
 	      referer: currenthref,
-	      href: href,
 	      url: href,
 	      options: options,
 	      body: body
@@ -321,20 +351,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	      response: response
 	    }) ) {
 	      if( writestate ) {
-	        history.push(href);
-	        if( history.length > 30 ) history = history.slice(history.length - 30);
+	        pushhistory(href, replace);
 	        
-	        //console.error('pushstate', router.id, href);
-	        router.fire('pushstate', {
+	        //console.error('writestate', router.id, href);
+	        router.fire('writestate', {
 	          href: href,
+	          pop: pop,
 	          replace: replace,
+	          commit: false,
 	          request: request,
 	          response: response
 	        });
 	      }
 	      
-	      router(request, response);
 	      currenthref = href;
+	      router(request, response);
 	      
 	      router.fire('request', {
 	        href: href,
@@ -342,7 +373,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        response: response
 	      });
 	    } else if( debug ) {
-	      console.info('[x-router] beforerequest event prevented');
+	      console.debug('[x-router] beforerequest event prevented');
 	    }
 	    
 	    return this;
@@ -360,15 +391,38 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( state ) return router.href(state, null, {force: true});
 	  };
 	  
+	  router.on('end', function(e) {
+	    var href = e.detail.href;
+	    var request = e.detail.request;
+	    var response = e.detail.response;
+	    var writestate = e.detail.request.options.writestate === false ? false : true;
+	    
+	    if( writestate ) {
+	      committedhref = href;
+	      pushhistory(href, true);
+	      
+	      router.fire('writestate', {
+	        href: href,
+	        commit: true,
+	        replace: true,
+	        request: request,
+	        response: response
+	      });
+	    }
+	  });
+	  
 	  router.on('replace', function(e) {
-	    if( debug ) console.info('[x-router] route replaced', e.detail);
+	    if( debug ) console.debug('[x-router] route replaced', e.detail);
+	    if( e.detail.request.app !== router ) return;
 	    
 	    var request = e.detail.request;
 	    if( request.options.writestate !== false ) {
-	      history[history.length - 1] = e.detail.href;
+	      pushhistory(e.detail.href, true);
 	      
-	      router.fire('replacestate', {
+	      router.fire('writestate', {
 	        href: e.detail.href,
+	        replace: true,
+	        commit: false,
 	        request: request,
 	        response: e.detail.response
 	      });
@@ -376,38 +430,39 @@ return /******/ (function(modules) { // webpackBootstrap
 	  });
 	  
 	  router.listen = function(options) {
-	    pathbar.connect(router, options);
+	    router.connector = connector.connect(router, options);
 	    return this;
 	  };
 	  
 	  router.close = function() {
-	    pathbar.disconnect(router);
+	    connector.disconnect(router);
+	    delete router.connector;
 	    return this;
 	  };
 	  
 	  return router;
 	};
 	
-	Application.pathbar = pathbar;
+	Application.connector = connector;
 	Application.Router = Router;
-	Application.middleware = {
+	Application.initiator = {
 	  add: function(fn) {
-	    middlewares.push(fn);
+	    initiators.push(fn);
 	    return this;
 	  },
 	  remove: function(fn) {
-	    if( ~middlewares.indexOf(fn) ) middlewares.splice(middlewares.indexOf(fn), 1);
+	    if( ~initiators.indexOf(fn) ) initiators.splice(initiators.indexOf(fn), 1);
 	    return this;
 	  },
 	  list: function() {
-	    return middlewares;
+	    return initiators;
 	  }
 	};
 	Application.apps = apps;
-	Application.ids = function() {
+	Application.apps.ids = function() {
 	  return Object.keys(apps); 
 	};
-	Application.get = function(id) {
+	Application.apps.get = function(id) {
 	  return apps[id]; 
 	};
 	
@@ -2313,9 +2368,40 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var path = __webpack_require__(2);
 	var URL = __webpack_require__(4);
-	var querystring = __webpack_require__(8);
 	var RoutePattern = __webpack_require__(12);
-	var EventObject = __webpack_require__(13);
+	var Events = __webpack_require__(13);
+	
+	
+	if( !String.prototype.startsWith ) {
+	  String.prototype.startsWith = function(searchString, position){
+	    position = position || 0;
+	    return this.substr(position, searchString.length) === searchString;
+	  };
+	}
+	
+	if( !String.prototype.endsWith ) {
+	  String.prototype.endsWith = function(suffix) {
+	    return this.indexOf(suffix, this.length - suffix.length) !== -1;
+	  };
+	}
+	
+	if( !Array.prototype.forEach ) {
+	  Array.prototype.forEach = function(callback){
+	    for (var i = 0; i < this.length; i++){
+	      callback.apply(this, [this[i], i, this]);
+	    }
+	  };
+	}
+	
+	if( !Array.prototype.indexOf ) {
+	  Array.prototype.indexOf = function(obj, start) {
+	    for (var i = (start || 0); i < this.length; i++) {
+	      if (this[i] == obj) return i;
+	    }
+	    return -1;
+	  };
+	}
+	
 	
 	function patternize(source, ignoresubdir) {
 	  var pettern = RoutePattern.fromString(source);
@@ -2347,7 +2433,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  if( full.endsWith('/') ) full = full.substring(0, full.length - 1);
 	  if( !axis ) return {
 	    sub: '/' + full,
-	    parent: '/'
+	    parent: ''
 	  };
 	  
 	  while(~axis.indexOf('//')) axis.split('//').join('/');
@@ -2380,36 +2466,26 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return result;
 	}
 	
-	
-	var routermark = {};
+	var seq = 0;
 	function Router(id) {
-	  id = id || (Math.random() + '') || 'unknwon';
+	  id = id || seq++;
 	  var boot = true;
 	  var routes = [];
-	  var listeners = {};
 	  
 	  var body = function Router(req, res, onext) {
 	    var oRequest = req = req || {};
 	    var oResponse = res = res || {};
 	    
 	    // app 인 경우
-	    if( typeof body.app === 'function' ) {
-	      var app = body.app(req, res);
-	      req = app.request;
-	      res = app.response;
-	      req.parentApp = oRequest.app;
-	      req.app = body;
-	      req.href = oRequest.url;
-	      req.url = oRequest.url;
-	      req.parsed = URL.parse(req.href);
-	      req.hash = req.parsed.hash;
-	      req.query = querystring.parse(req.parsed.query);
-	      req.parentURL = '';
-	      req.params = {};
+	    if( typeof body.prepare === 'function' ) {
+	      var prepared = body.prepare(req, res);
+	      req = prepared.request;
+	      res = prepared.response;
 	    }
 	    
 	    var oParentURL = req.parentURL = req.parentURL || '';
 	    var oURL = req.url = req.url || '/';
+	    var oHref = req.href = req.href || req.url;
 	    var oParams = req.params = req.params || {};
 	    var finished = false;
 	    
@@ -2419,10 +2495,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	      boot = false;
 	      req.parentURL = oParentURL;
 	      req.url = oURL;
+	      req.href = oHref;
 	      req.params = oParams;
 	      
 	      if( err ) {
-	        body.fire('error', {
+	        events.fire('error', {
 	          router: body,
 	          href: req.href,
 	          url: req.url,
@@ -2434,7 +2511,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        return onext && onext(err);
 	      }
 	      
-	      body.fire('notfound', {
+	      events.fire('notfound', {
 	        router: body,
 	        href: req.href,
 	        url: req.url,
@@ -2475,30 +2552,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	        
 	        var ohref = req.href;
 	        req.url = oURL = '/' + fn;
-	        req.href = path.join(oParentURL, fn);
+	        req.href = path.join(oParentURL || '/', fn);
 	        
-	        //console.error('replace', ohref, oParentURL, fn, req.href, req.url);
+	        /*console.debug('replace', {
+	          ohref: ohref,
+	          oParentURL: oParentURL,
+	          to: fn,
+	          'req.parentURL': req.parentURL,
+	          'req.href': req.href,
+	          'req.url': req.url
+	        });*/
 	        
-	        body.fire('replace', {
+	        events.fire('replace', {
+	          router: body,
 	          previous: ohref,
 	          href: req.href,
+	          url: req.url,
 	          request: req,
 	          response: res
-	        });
+	        }, 'up');
 	        
 	        return forward();
 	      }
 	      
 	      // sub routing
-	      if( fn.__router__ ) {
+	      if( fn.__router__ || fn.Routable ) {
 	        /*console.info('-------');
 	        console.info('id', fn.id);
 	        console.info('routepath', routepath);
 	        console.info('url', req.url);*/
 	        
 	        var div = dividepath(routepath, URL.parse(req.url).pathname);
-	        req.parentURL = path.join(oParentURL, div.parent);
+	        req.parentURL = div.parent ? path.join(oParentURL, div.parent) : oParentURL;
 	        req.url = req.url.substring(div.parent.length);
+	        
+	        //console.log('sub routing', routepath, oURL, '->', req.url);
 	        
 	        /*console.info('result parent', req.parentURL);
 	        console.info('result url', req.url);
@@ -2506,29 +2594,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	        console.info('-------');*/
 	      }
 	      
-	      body.fire('route', {
-	        route: route,
+	      events.fire('route', {
+	        router: body,
+	        config: route,
 	        href: req.href,
 	        url: req.url,
 	        request: req,
 	        response: res
-	      });
+	      }, 'up');
 	      
 	      route.fn.apply(body, [req, res, forward]);
 	    };
 	    forward();
 	  };
 	  
+	  body.Routable = true;
 	  body.id = id;
-	  body.__router__ = routermark;
-	  
-	  var adaptchild = function(fn) {
-	    if( fn && fn === body ) throw new Error('cannot add router itself: ' + fn.id);
-	    if( fn.__router__ === routermark ) {
-	      fn.parent = body;
-	    }
-	    return fn;
-	  };
 	  
 	  body.exists = function(url) {
 	    var exists = false;
@@ -2544,15 +2625,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return exists;
 	  };
 	  
+	  var add = function(route) {
+	    var fn = route.fn;
+	    if( fn && fn === body ) throw new Error('cannot add router itself: ' + fn.id);
+	    
+	    // adapt each
+	    if( fn.__router__ || fn.Routable ) {
+	      fn.connect && fn.connect(body, 'up');
+	      events.connect(fn, 'down');
+	    }
+	    
+	    routes.push(route);
+	    events.fire('add', {
+	      router: body,
+	      config: route
+	    });
+	  };
+	  
 	  body.use = function(path, fn) {
 	    if( typeof path === 'function' ) fn = path, path = '/';
 	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    
-	    routes.push({
+	    add({
 	      type: 'use',
 	      path: path || '/',
 	      pattern: patternize(path, true),
-	      fn: adaptchild(fn)
+	      fn: fn
 	    });
 	    return this;
 	  };
@@ -2561,7 +2659,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof path === 'function' ) fn = path, path = '/';
 	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    
-	    routes.push({
+	    add({
 	      type: 'get',
 	      path: path || '/',
 	      pattern: patternize(path),
@@ -2574,11 +2672,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof path === 'function' ) fn = path, path = '/';
 	    if( typeof path !== 'string' ) throw new TypeError('illegal type of path:' + typeof(path));
 	    
-	    routes.push({
+	    add({
 	      type: 'boot',
 	      path: path || '/',
 	      pattern: patternize(path, true),
-	      fn: adaptchild(fn)
+	      fn: fn
 	    });
 	    return this;
 	  };
@@ -2593,14 +2691,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
-	  body.drop = function(fn) {
+	  body.drop = body.remove = function(fn) {
 	    var dropfns = [];
 	    routes.forEach(function(route) {
 	      if( route.fn === fn ) dropfns.push(route);
 	    });
 	    
 	    dropfns.forEach(function(route) {
+	      if( route.fn ) {
+	        route.fn.disconnect && route.fn.disconnect(body);
+	        events.connect(route.fn, 'down');
+	      }
+	      
 	      routes.splice(routes.indexOf(route), 1);
+	      
+	      events.fire('remove', {
+	        router: body,
+	        config: route
+	      });
 	    });
 	    return this;
 	  };
@@ -2610,72 +2718,38 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
+	  var events = Events(body);
 	  body.on = function(type, fn) {
-	    listeners[type] = listeners[type] || [];
-	    listeners[type].push(fn);
-	    
+	    events.on.apply(events, arguments);
 	    return this;
 	  };
 	  
 	  body.once = function(type, fn) {
-	    var wrap = function(e) {
-	      body.off(type, wrap);
-	      return fn.call(this, e);
-	    };
-	    body.on(type, wrap);
+	    events.once.apply(events, arguments);
 	    return this;
 	  };
 	  
 	  body.off = function(type, fn) {
-	    var fns = listeners[type];
-	    if( fns )
-	      for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
-	    
+	    events.off.apply(events, arguments);
 	    return this;
 	  };
 	  
-	  body.fire = function(type, detail) {
-	    var typename = (type && type.type) || type;
-	    if( !listeners[typename] && !listeners['*'] && !(~['route', 'replace'].indexOf(typename) && body.parent) ) return true;
-	    
-	    var event;
-	    if( typeof type === 'string' ) {
-	      event = EventObject.createEvent(type, detail, body);
-	    } else if( type instanceof EventObject ) {
-	      event = type;
-	    } else {
-	      return console.error('illegal arguments, type is must be a string or event', type);
-	    }
-	    event.currentTarget = body;
-	    
-	    var stopped = false, prevented = false;
-	    var action = function(listener, scope) {
-	      if( stopped ) return;
-	      listener.call(scope, event);
-	      if( event.defaultPrevented === true ) prevented = true;
-	      if( event.stoppedImmediate === true ) stopped = true;
-	    };
-	    
-	    (listeners['*'] || []).forEach(action, body);
-	    (listeners[event.type] || []).forEach(action, body);
-	    
-	    if( ~['route', 'replace'].indexOf(event.type) && body.parent && body.parent !== body ) {
-	      body.parent.fire(event);
-	    }
-	    
-	    return !prevented;
+	  body.fire = function(type, detail, direction, includeself) {
+	    return events.fire.apply(events, arguments);
+	  };
+	  
+	  body.connect = function(router, direction) {
+	    events.connect(router, direction);
+	    return this;
+	  };
+	  
+	  body.disconnect = function(router) {
+	    events.disconnect(router);
+	    return this;
 	  };
 	  
 	  body.hasListener = function(type) {
-	    if( typeof type === 'function' ) {
-	      var found = false;
-	      listeners.forEach(function(fn) {
-	        if( found ) return;
-	        if( fn === type ) found = true;
-	      });
-	      return found;
-	    }
-	    return listeners[type] && listeners[type].length ? true : false;
+	    return events.has.apply(events, arguments);
 	  };
 	  
 	  return body;
@@ -3091,6 +3165,38 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 13 */
 /***/ function(module, exports) {
 
+	if( !Array.prototype.every ) {
+	  Array.prototype.every = function(callbackfn, thisArg) {
+	    var T, k;
+	    
+	    if (this == null) {
+	      throw new TypeError('this is null or not defined');
+	    }
+	    
+	    var O = Object(this);
+	    var len = O.length >>> 0;
+	    if (typeof callbackfn !== 'function') {
+	      throw new TypeError();
+	    }
+	    if (arguments.length > 1) {
+	      T = thisArg;
+	    }
+	    k = 0;
+	    while (k < len) {
+	      var kValue;
+	      if (k in O) {
+	        kValue = O[k];
+	        var testResult = callbackfn.call(T, kValue, k, O);
+	        if (!testResult) {
+	          return false;
+	        }
+	      }
+	      k++;
+	    }
+	    return true;
+	  };
+	}
+	
 	function EventObject(type, detail, target, cancelable) {
 	  this.type = type;
 	  this.detail = detail || {};
@@ -3117,33 +3223,192 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return new EventObject(type, detail, target, cancelable);
 	};
 	
-	module.exports = EventObject;
+	
+	module.exports = function(scope) {
+	  var listeners = {}, paused = false, related = [];
+	  
+	  var on = function(type, fn) {
+	    if( !type || typeof type !== 'string' ) return console.error('type must be a string');
+	    if( typeof fn !== 'function' ) return console.error('listener must be a function');
+	    
+	    var types = type.split(' ');
+	    types.forEach(function(type) {
+	      listeners[type] = listeners[type] || [];
+	      listeners[type].push(fn);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var once = function(type, fn) {
+	    if( !type || typeof type !== 'string' ) return console.error('type must be a string');
+	    if( typeof fn !== 'function' ) return console.error('listener must be a function');
+	    
+	    var types = type.split(' ');
+	    types.forEach(function(type) {
+	      if( !type ) return;
+	      
+	      var wrap = function(e) {
+	        off(type, wrap);
+	        return fn.call(this, e);
+	      };
+	      on(type, wrap);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var off = function(type, fn) {
+	    if( !type || typeof type !== 'string' ) return console.error('type must be a string');
+	    if( typeof fn !== 'function' ) return console.error('listener must be a function');
+	    
+	    var types = type.split(' ');
+	    types.forEach(function(type) {
+	      var fns = listeners[type];
+	      if( fns ) for(var i;~(i = fns.indexOf(fn));) fns.splice(i, 1);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var has = function(type) {
+	    if( typeof type === 'function' ) {
+	      var found = false;
+	      listeners.forEach(function(fn) {
+	        if( found ) return;
+	        if( fn === type ) found = true;
+	      });
+	      return found;
+	    }
+	    return listeners[type] && listeners[type].length ? true : false;
+	  };
+	  
+	  var fire = function(type, detail, direction, includeself) {
+	    if( paused ) return;
+	    
+	    var typename = (type && type.type) || type;
+	    
+	    var event;
+	    if( typeof type === 'string' ) {
+	      event = EventObject.createEvent(type, detail, scope);
+	    } else if( type instanceof EventObject ) {
+	      event = type;
+	    } else {
+	      return console.error('illegal arguments, type is must be a string or event', type);
+	    }
+	    event.currentTarget = scope;
+	    
+	    var stopped = false, stopRelated = false, prevented = false;
+	    var action = function(listener) {
+	      if( stopped ) return;
+	      listener.call(scope, event);
+	      if( event.defaultPrevented === true ) prevented = true;
+	      if( event.stopped === true ) stopRelated = true;
+	      if( event.stoppedImmediate === true ) stopped = true, stopRelated = true;
+	    };
+	    
+	    if( !direction || includeself !== false ) {
+	      (listeners['*'] || []).slice().reverse().forEach(action);
+	      (listeners[event.type] || []).slice().reverse().forEach(action);
+	    }
+	    
+	    if( direction && !stopRelated ) {
+	      prevented = !related.every(function(node) {
+	        if( !node.target.fire || (direction !== 'both' && node.direction !== direction) ) return true;
+	        return node.target.fire(type, detail, direction);
+	      });
+	    }
+	    
+	    return !prevented;
+	  };
+	  
+	  var destroy = function() {
+	    listeners = null;
+	    return this;
+	  };
+	  
+	  var pause = function() {
+	    paused = true;
+	    return this;
+	  };
+	  
+	  var resume = function() {
+	    paused = false;
+	    return this;
+	  };
+	  
+	  var connect = function(target, direction) {
+	    if( !target ) return console.warn('illegal argument: target cannot be null', target);
+	    if( !~['up', 'down'].indexOf(direction) ) return console.warn('illegal argument: direction must be "up" or "down" but ', direction);
+	    
+	    related.push({
+	      target: target,
+	      direction: direction
+	    });
+	    
+	    return this;
+	  };
+	  
+	  var disconnect = function(target) {
+	    if( !node ) return this;
+	    
+	    var fordelete = [];
+	    related.forEach(function(node) {
+	      if( node.target === target ) fordelete.push(node);
+	    });
+	    
+	    fordelete.forEach(function(node) {
+	      related.splice(related.indexOf(node), 1);
+	    });
+	    
+	    return this;
+	  };
+	  
+	  return {
+	    on: on,
+	    once: once,
+	    off: off,
+	    fire: fire,
+	    has: has,
+	    destroy: destroy,
+	    pause: pause,
+	    resume: resume,
+	    connect: connect,
+	    disconnect: disconnect
+	  };
+	};
 
 /***/ },
 /* 14 */
 /***/ function(module, exports) {
 
 	module.exports = function(name, alt) {
-	  var tag = document.head.querySelector('meta[name="xrouter.' + name + '"]');
-	  return (tag && tag.getAttribute('content')) || alt;
+	  if( typeof document === 'object' && document.head ) {
+	    var tag = document.head.querySelector('meta[name="xrouter.' + name + '"]');
+	    return (tag && tag.getAttribute('content')) || alt || null;
+	  }
+	  
+	  return alt || null;
 	};
 
 /***/ },
 /* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var URL = __webpack_require__(4);
 	var meta = __webpack_require__(14);
 	var debug = meta('debug') === 'true' ? true : false;
-	var defmode = meta('mode') || (history.pushState ? 'pushstate' : 'hashbang');
-	var apps = [];
-	var stateseq = 0;
+	var defmode = meta('mode');
 	
-	var chref = function() {
-	  return URL.parse(location.href).path;
-	}
+	var apps = [];
+	var instances = [];
 	
 	module.exports = {
+	  connectors: {
+	    pushstate: __webpack_require__(16),
+	    hashbang: __webpack_require__(18)('!'),
+	    hash: __webpack_require__(18)(),
+	    auto: __webpack_require__(19)
+	  },
 	  href: function(href, body, options) {
 	    var args = arguments;
 	    apps.forEach(function(app) {
@@ -3152,101 +3417,32 @@ return /******/ (function(modules) { // webpackBootstrap
 	    
 	    return this;
 	  },
+	  instances: function() {
+	    return apps.slice();
+	  },
 	  connect: function(app, options) {
 	    if( !app ) return console.error('missing argument:app');
 	    if( ~apps.indexOf(app) ) return console.error('already listening', app.id);
 	    
 	    options = options || {};
+	    var mode = options.mode || defmode || 'auto';
+	    
+	    if( debug ) console.debug('[x-router] mode:', mode);
+	    var Connector = this.connectors[mode];
+	    if( !Connector ) {
+	      console.warn('[x-router] unsupported mode: ', mode);
+	      Connector = this.connectors['auto'];
+	    }
+	    
+	    var connector = Connector(app);
 	    apps.push(app);
-	    
-	    var mode = options.mode || defmode;
-	    
-	    if( !~['pushstate', 'hash', 'hashbang', 'auto'].indexOf(mode) ) {
-	      console.warn('[x-router] unsupported mode: ' + mode);
-	      mode = 'auto';
-	    }
-	    
-	    if( mode === 'auto' ) {
-	      mode = history.pushState ? 'pushstate' : 'hashbang';
-	    }
-	    
-	    if( mode === 'pushstate' && !history.pushState ) {
-	      console.warn('[x-router] browser does not support `history.pushState`');
-	      mode = 'hashbang';
-	    }
-	    
-	    if( debug ) console.info('xrouter.mode', meta('mode'), mode);
-	    
-	    if( mode === 'pushstate' ) {
-	      if( !history.pushState ) return console.error('[x-router] browser does not support \'history.pushState\'');
-	      
-	      var staterefs = {}, laststateid;
-	      
-	      app.__pathbar_popstate__ = function(e) {
-	        if( !(e.state in staterefs) ) return;
-	        var state = staterefs[e.state];
-	        var body = state.body;
-	        var options = state.options || {};
-	        options.writestate = false;
-	        
-	        app.href(chref(), body, options);
-	      };
-	      
-	      app.__pathbar_pushstate__ = function(e) {
-	        var stateid = laststateid = stateseq++;
-	        staterefs[stateid] = {
-	          body: e.detail.body,
-	          options: e.detail.options
-	        };
-	        
-	        history.pushState(stateid, null, e.detail.href);
-	      };
-	      
-	      app.__pathbar_replacestate__ = function(e) {
-	        //console.error('replacestate', e.detail.href);
-	        delete staterefs[laststateid];
-	        var stateid = laststateid = stateseq++;
-	        staterefs[stateid] = {
-	          body: e.detail.body,
-	          options: e.detail.options
-	        };
-	        
-	        history.replaceState(stateid, null, e.detail.href);
-	      };
-	      
-	      window.addEventListener('popstate', app.__pathbar_popstate__);
-	      app.on('pushstate', app.__pathbar_pushstate__);
-	      app.on('replacestate', app.__pathbar_replacestate__);
-	    }
-	    
-	    var fire = function() {
-	      if( mode === 'pushstate') app.href(chref());
-	      else if( mode === 'hashbang' ) app.href(location.hash.substring(2));
-	      else if( mode === 'hash' ) app.href(location.hash.substring(1));
-	    };
-	    
-	    if( document.body ) {
-	      fire();
-	    } else {
-	      if( document.addEventListener ) {
-	        document.addEventListener('DOMContentLoaded', function() {
-	          window.setTimeout(fire, 1);
-	        });
-	      } else if( document.attachEvent ) {
-	        document.attachEvent('onreadystatechange', function () {
-	          if( document.readyState === 'complete' ) window.setTimeout(fire, 1);
-	        });
-	      }
-	    }
-	    
-	    return this;
+	    instances.push(connector);
+	    return connector;
 	  },
 	  disconnect: function(app) {
-	    if( ~apps.indexOf(app) ) apps.splice(apps.indexOf(app), 1);
-	    document.removeEventListener('popstate', app.__pathbar_popstate__);
-	    app.off('pushstate', app.__pathbar_pushstate__);
-	    app.off('replacestate', app.__pathbar_replacestate__);
-	    
+	    var pos = apps.indexOf(app);
+	    if( ~pos ) apps.splice(pos, 1);
+	    if( ~pos ) instances.splice(pos, 1);
 	    return this;
 	  }
 	};
@@ -3256,8 +3452,163 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
+	var URL = __webpack_require__(4);
+	var domready = __webpack_require__(17);
+	
+	var stateseq = 0;
+	function genstateseq(app) {
+	  stateseq = stateseq + 1;
+	  return app.id + ':' + stateseq;
+	}
+	
+	function chref() {
+	  return URL.parse(location.href).path;
+	}
+	
+	module.exports = function(app) {
+	  if( typeof history !== 'object' && !(history && history.pushState) ) return console.error('[x-router] browser does not support \'history.pushState\'');
+	  
+	  var staterefs = {}, laststateid, empty = {};
+	  
+	  var pathbar_popstate = function(e) {
+	    //console.debug('pop', e.state, staterefs[e.state], chref());
+	    if( !(e.state in staterefs) ) return;
+	    var state = staterefs[e.state];
+	    var body = state.body;
+	    if( body === empty ) body = null;
+	    
+	    app.href(chref(), body, {pop:true});
+	  };
+	  
+	  var pathbar_writestate = function(e) {
+	    if( e.detail.pop ) return;
+	  
+	    if( e.detail.replace ) {
+	      //delete staterefs[laststateid];
+	      var stateid = laststateid = genstateseq(app);
+	      staterefs[stateid] = e.detail.body || empty;
+	      
+	      //console.debug('replace', stateid, e.detail.href);
+	      history.replaceState(stateid, null, e.detail.href);
+	    } else {
+	      var stateid = laststateid = genstateseq(app);
+	      staterefs[stateid] = e.detail.body || empty;
+	      
+	      // TODO: 현재의 브라우저 경로와 같은 href 라면 replaceState 를 하는게 맞을지.
+	      
+	      //console.debug('push', stateid, e.detail.href);
+	      history.pushState(stateid, null, e.detail.href);
+	    }
+	  };
+	  
+	  window.addEventListener('popstate', pathbar_popstate);
+	  app.on('writestate', pathbar_writestate);
+	  
+	  domready(function() {
+	    app.href(chref());
+	  });
+	  
+	  return {
+	    disconnect: function(app) {
+	      document.removeEventListener('popstate', pathbar_popstate);
+	      app.off('writestate', pathbar_writestate);
+	    }
+	  }
+	};
+
+
+/***/ },
+/* 17 */
+/***/ function(module, exports) {
+
+	module.exports = function(fn) {
+	  if( document.body ) {
+	    fn();
+	  } else {
+	    if( document.addEventListener ) {
+	      document.addEventListener('DOMContentLoaded', function() {
+	        window.setTimeout(fn, 1);
+	      });
+	    } else if( document.attachEvent ) {
+	      document.attachEvent('onreadystatechange', function () {
+	        if( document.readyState === 'complete' ) window.setTimeout(fn, 1);
+	      });
+	    }
+	  }
+	};
+
+/***/ },
+/* 18 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var domready = __webpack_require__(17);
+	
+	function chref(n) {
+	  return location.hash.substring(n) || '/';
+	}
+	
+	module.exports = function(prefix) {
+	  prefix = '#' + (prefix || '');
+	  var n = prefix.length;
+	  
+	  return function(app) {
+	    var lasthref;
+	    var hashchangelistener = function() {
+	      var href = chref(n);
+	      if( location.hash.startsWith(prefix + '/') && lasthref !== href ) app.href(href);
+	    };
+	  
+	    if( window.addEventListener ) window.addEventListener('hashchange', hashchangelistener);
+	    else window.attachEvent('hashchange', hashchangelistener);
+	  
+	    var writestatelistener = function(e) {
+	      if( e.detail.pop ) return;
+	      
+	      var href = prefix + e.detail.href;
+	      if( href === lasthref ) return;
+	      
+	      lasthref = e.detail.href;
+	      if( e.detail.replace ) {
+	        location.replace(href);
+	      } else {
+	        location.assign(href);
+	      }
+	    };
+	  
+	    app.on('writestate', writestatelistener);
+	  
+	    domready(function() {
+	      if( location.hash.startsWith(prefix + '/') ) app.href(chref(n));
+	      else app.href('/');
+	    });
+	  
+	    return {
+	      disconnect: function(app) {
+	        if( window.addEventListener ) window.removeEventListener('hashchange', hashchangelistener);
+	        else window.detachEvent('hashchange', hashchangelistener);
+	        app.off('writestate', writestatelistener);
+	      }
+	    }
+	  };
+	};
+
+/***/ },
+/* 19 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = function(app) {
+	  if( typeof history == 'object' && history && history.pushState )
+	    return __webpack_require__(16)(app);
+	  
+	  return __webpack_require__(18)('!')(app);
+	};
+
+/***/ },
+/* 20 */
+/***/ function(module, exports, __webpack_require__) {
+
 	var path = __webpack_require__(2);
-	var ajax = __webpack_require__(17);
+	var ajax = __webpack_require__(21);
 	
 	function DefaultRenderer(options, done) {
 	  var target = options.target;
@@ -3301,10 +3652,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	        var arg = [null, target];
 	        if( odone ) odone.apply(this, arg.concat(oarg));
 	      };
-	    
+	      
 	      var o = {};
 	      var engine;
-	    
+	      
 	      if( !src ) {
 	        return done(new Error('missing src'));
 	      } if( typeof src === 'string' ) {
@@ -3317,7 +3668,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
 	        
 	        if( !(~src.indexOf('://') || src.indexOf('//') === 0) ) {
-	          if( src.trim()[0] === '/' ) src = '.' + src;
+	          if( src[0] === '/' ) src = '.' + src;
 	          o.src = path.join(base, src);
 	        } else {
 	          o.src = src;
@@ -3333,7 +3684,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        engine = app.engine(enginename) || app.engine(defenginename);
 	        if( !engine ) return done(new Error('not exists engine: ' + enginename));
 	        
-	        o.html = src[enginename || 'html'];
+	        o.html = src.html;
 	      } else {
 	        return done(new Error('illegal type of src: ' + typeof src));
 	      }
@@ -3358,33 +3709,41 @@ return /******/ (function(modules) { // webpackBootstrap
 	        request: request,
 	        response: response
 	      }) ) {
-	        engine.call(app, o, function(err) {
-	          if( err ) return done(err);
-	          
-	          app.fire('render', {
-	            href: request.href,
-	            options: o,
-	            src: src,
-	            target: target,
-	            url: request.url,
-	            request: request,
-	            response: response
+	        setTimeout(function() {
+	          engine.call(app, o, function(err) {
+	            if( err ) return done(err);
+	            
+	            app.fire('render', {
+	              href: request.href,
+	              options: o,
+	              src: src,
+	              target: target,
+	              url: request.url,
+	              request: request,
+	              response: response
+	            });
+	            
+	            target.xrouter = app;
+	            
+	            done.apply(this, arguments);
+	            if( willbeend ) response.end();
 	          });
-	          
-	          target.xrouter = app;
-	          done.apply(this, arguments);
-	        });
+	        }, 1);
 	      }
-	      
-	      return this;
+	    
+	      var willbeend = false;
+	      return {
+	        end: function() {
+	          willbeend = true;
+	        }
+	      };
 	    };
 	    
 	    response.render.html = function(html, options, done) {
 	      if( typeof html !== 'string' ) return done && done(new Error('html must be a string'));
 	      
 	      html = {html: html};
-	      response.render.apply(this, arguments);
-	      return this;
+	      return response.render.apply(this, arguments);
 	    };
 	    
 	    next();
@@ -3392,7 +3751,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 17 */
+/* 21 */
 /***/ function(module, exports) {
 
 	module.exports = function(src, done, options) {
@@ -3434,7 +3793,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	};
 
 /***/ },
-/* 18 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var path = __webpack_require__(2);
@@ -3470,15 +3829,18 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 19 */
+/* 23 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var meta = __webpack_require__(14);
+	var domready = __webpack_require__(17);
 	var app = __webpack_require__(1);
-	var pathbar = __webpack_require__(15);
-	var ieversion = __webpack_require__(20);
+	var connector = __webpack_require__(15);
+	var ieversion = __webpack_require__(24);
+	
 	var debug = meta('debug') === 'true' ? true : false;
 	var ROUTE_SELECTOR = '*[route], *[data-route], *[routes], *[data-routes]';
+	if( !document.head ) document.head = document.getElementsByTagName('head')[0];
 	
 	function isExternal(href) {
 	  var p = href.indexOf(':'), s = href.indexOf('/');
@@ -3512,7 +3874,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( !router && name ) {
 	        console.error('[x-router] not exists router: ' + name);
 	      } else if( href ) {
-	        (router || pathbar).href(href, {
+	        (router || connector).href(href, {
 	          srcElement: a
 	        }, {
 	          writestate: ghost ? false : true
@@ -3562,26 +3924,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	module.exports = {
 	  start: function() {
-	    if( document.body ) bootup();
-	    else {
-	      if( document.addEventListener ) {
-	        document.addEventListener('DOMContentLoaded', function() {
-	          window.setTimeout(bootup, 1);
-	        });
-	      } else if( document.attachEvent ) {
-	        document.attachEvent('onreadystatechange', function () {
-	          if( document.readyState === 'complete' ) window.setTimeout(bootup, 1);
-	        });
-	      }
-	    };
-	    
+	    domready(bootup);
 	    return this;
 	  },
 	  scan: scan
 	};
 
 /***/ },
-/* 20 */
+/* 24 */
 /***/ function(module, exports) {
 
 	module.exports = (function() {

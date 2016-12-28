@@ -18,40 +18,80 @@ var app = xrouter().use(...).listen();
 ```
 
 ## Usage
+```html
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8">
+  <meta name="xrouter.mode" content="auto">
+  <script src="x-router.js"></script>
+  <script src="app.js"></script>
+</head>
+<body>
+  <a href="/" route>home</a>
+  <a href="/sub" route>/sub</a>
+  <a href="/sub/index" route>/sub/index</a>
+  <a href="/sub/some" route>/sub/some</a>
+  <a href="/sub/other" route>/sub/other</a>
+  
+  <h3>target1</h3>
+  <div id="target1"></div>
+  
+  <h3>target2</h3>
+  <div id="target2"></div>
+  
+  <h3>target3</h3>
+  <div id="target3"></div>
+</body>
+</html>
+
+```
+
 ```javascript
-xrouter()
-  .config('view target', '#page')  // default render target
+var app = xrouter()
+  .config('view target', '#target1')  // default render target
   .config('views', '/')
   .use(function(req, res, next) {
     console.log('hello');
     next();
   })
   .get('/', function(req, res, next) {
-    res.render('/partials/index.html');
+    res.render.html('Hello!');
   })
   .use('/sub', xrouter.Router()
      .use(function(req, res, next) {
        console.log('sub routing...');
+       res.set('view target', '#target2'); // change render target dynamically
        next();
      })
      .get('/', 'index')  // redirect to `index`
      .get('/index', function(req, res, next) {
-       res.render('/partials/sub/index.html',  {
-         target: '#newtarget'
-       }); 
+       res.render.html('sub index!',  {
+         target: '#target3'
+       }).end();
      })
-     .get('/:param', function(req, res, next) {
-       var param = req.params.param;
-       if( param === 'a' ) return res.redirect('index');
-       // same as { target: '#newtarget' }
-       res.render('/partials/sub/list.html', '#newtarget', function(err, target) {
+     .get('/some', function(req, res, next) {
+       res.end();
+     })
+     .get('/:value', function(req, res, next) {
+       var value = req.params.value;
+       
+       res.render.html('parameter is ' + value, function(err, target) {
          if( err ) return next(err);
          console.log('render target is ', target);
-       });
+       }).end();
      })
   )
-  .use(function(req, res, next) {
-    console.error('notfound', req.href);
+  .on('end', function(e) {
+    console.debug('end', e.detail.href);
+  })
+  .on('writestate', function(e) {
+    console.debug('writestate', e.detail);
+  })
+  .on('notfound', function(e) {
+    console.warn('notfound', e.detail.href);
   })
   .on('error', function(e) {
     console.error('error', e.detail.error);
@@ -59,11 +99,12 @@ xrouter()
   .listen();
 ```
 
+
 ### Configuration
-> support both `pushstate` and `hash`, If you have not set up any value automatically using `pushstate` or `hash`.
+> support both `pushstate` and `hash`, If you have not set up any value automatically using `pushstate` or `hashbang(#!/path)`.
 
 ```html
-<meta name="xrouter.mode" content="pushstate | hash | hashbang | auto | none">
+<meta name="xrouter.mode" content="pushstate | hashbang | hash | auto">
 <meta name="xrouter.debug" content="false | true">
 <meta name="xrouter.observe" content="true | false">
 <meta name="xrouter.observe.delay" content="1000">
