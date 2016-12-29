@@ -70,20 +70,42 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return xrouter.connector.href.apply(xrouter.connector, arguments);
 	};
 	
-	xrouter.get = function(id) {
-	  if( !id ) return null;
-	  if( typeof id == 'string' ) return xrouter.apps.get(id);
-	  
-	  id = id[0] || id;
-	  if( id.parentNode ) return (function() {
-	    while(id) {
-	      if( id.xrouter ) return id.xrouter;
-	      id = id.parentNode;
-	    }
-	  })();
-	};
-	
+	// browser only
 	if( typeof window === 'object' ) {
+	  var closest = function(el, selector) {
+	    var matches = (window.document || window.ownerDocument).querySelectorAll(selector), i;
+	    do {
+	      i = matches.length;
+	      while (--i >= 0 && matches.item(i) !== el) {};
+	    } while ((i < 0) && (el = el.parentElement)); 
+	    return el;
+	  };
+	  
+	  xrouter.get = function(id, axis) {
+	    if( !id ) return null;
+	    if( typeof id == 'string' ) {
+	      var selector = '[data-xrouter-id="' + id + '"]';
+	      var matched;
+	        
+	      if( axis && axis.nodeType === 1 ) {
+	        if( axis.closest ) matched = axis.closest(selector);
+	        else matched = closest(axis, selector);
+	      }
+	      
+	      matched = matched || (window.document || window.ownerDocument).querySelector(selector);
+	      
+	      return matched && matched.xrouter;
+	    }
+	    
+	    var node = id[0] || id;
+	    if( node.parentNode ) return (function() {
+	      while( node ) {
+	        if( node.xrouter ) return node.xrouter;
+	        node = node.parentNode;
+	      }
+	    })();
+	  };
+	  
 	  xrouter.scanner = __webpack_require__(23).start();
 	  window.xrouter = xrouter;
 	}
@@ -141,8 +163,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	console.debug(abs('http://localhost/first/second/third/fourth?a=b', '/done?b=c#hash'));
 	*/
 	
-	var apps = global.xrouter_apps = global.xrouter_apps || {};
-	var applicationscope = global.xrouter_applicationscope = global.xrouter_applicationscope || {};
+	var globalscope = global.xrouter_globalscope = global.xrouter_globalscope || {};
 	
 	function Application(id) {
 	  var router = Router(id),
@@ -157,7 +178,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    committedhref;
 	    
 	  if( debug ) console.debug('app created', id);
-	  if( id ) apps[id] = router;
 	  
 	  // add global initiator
 	  initiators.forEach(function(initiator) {
@@ -261,7 +281,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        query: querystring.parse(parsed.query),
 	        
 	        session: session,
-	        global: request.global || applicationscope,
+	        global: request.global || globalscope,
 	        options: request.options,
 	        body: request.body
 	      },
@@ -459,13 +479,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	  list: function() {
 	    return initiators;
 	  }
-	};
-	Application.apps = apps;
-	Application.apps.ids = function() {
-	  return Object.keys(apps); 
-	};
-	Application.apps.get = function(id) {
-	  return apps[id]; 
 	};
 	
 	module.exports = Application;
@@ -3702,6 +3715,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( typeof target === 'string' ) target = document.querySelector(target);
 	      if( !target ) return done(new Error('view target not found: ' + (o.target || response.config('view target') || app.config('view target'))));
 	      o.target = target;
+	      o.request = request;
+	      o.response = response;
 	      
 	      if( app.fire('beforerender', {
 	        href: request.href,
@@ -3726,6 +3741,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	              response: response
 	            });
 	            
+	            if( app.id ) target.setAttribute('data-xrouter-id', app.id + '');
 	            target.xrouter = app;
 	            
 	            done.apply(this, arguments);
@@ -3837,7 +3853,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var meta = __webpack_require__(14);
 	var domready = __webpack_require__(17);
-	var app = __webpack_require__(1);
+	var apps = __webpack_require__(1);
 	var connector = __webpack_require__(15);
 	var ieversion = __webpack_require__(24);
 	
@@ -3859,28 +3875,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	    a.onrouterequest = null;
 	    
 	    a.onclick = function(e) {
-	      var name = a.getAttribute('data-route') || a.getAttribute('route');
-	      var ghost = a.hasAttribute('data-ghost') || a.hasAttribute('ghost');
-	      var href = a.getAttribute('data-href') || a.getAttribute('href') || '';
+	      var name = a.getAttribute('data-route') || a.getAttribute('route') || a.getAttribute('data-routes') || a.getAttribute('routes');
+	      var href = a.getAttribute('data-href') || a.getAttribute('href');
+	      var ghost = a.getAttribute('data-ghost') || a.hasAttribute('ghost');
+	      var replace = a.getAttribute('data-replace') || a.hasAttribute('replace');
 	      
-	      if( isExternal(href) ) return;
+	      if( !href || isExternal(href) ) return;
 	      if( !ieversion || ieversion > 8 ) e.preventDefault();
 	      
-	      var router = name ? app.get(name) : (function() {
-	        var parent = a;
-	        while(parent) {
-	          if( parent.xrouter ) return parent.xrouter;
-	          parent = parent.parentNode;
-	        }
-	      })();
+	      var app = name ? apps.get(name, a) : apps.get(a);
 	      
-	      if( !router && name ) {
-	        console.error('[x-router] not exists router: ' + name);
+	      if( !app && name ) {
+	        console.error('[x-router] not found: ' + name);
 	      } else if( href ) {
-	        (router || connector).href(href, {
+	        (app || connector).href(href, {
 	          srcElement: a
 	        }, {
-	          writestate: ghost ? false : true
+	          writestate: ghost ? false : true,
+	          replace: replace
 	        });
 	      }
 	      
