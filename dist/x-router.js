@@ -81,7 +81,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return el;
 	  };
 	  
+	  // @deprecated
 	  xrouter.get = function(id, axis) {
+	    console.warn('[x-router] xrouter.get is deprecated, use xrouter.find instead');
+	    
+	    var node = xrouter.find(id, axis);
+	    return node && node.xrouter;
+	  };
+	  
+	  xrouter.find = function(id, axis) {
 	    if( !id ) return null;
 	    if( typeof id == 'string' ) {
 	      var selector = '[data-xrouter-id="' + id + '"]';
@@ -94,13 +102,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      
 	      matched = matched || (window.document || window.ownerDocument).querySelector(selector);
 	      
-	      return matched && matched.xrouter;
+	      return matched;
 	    }
 	    
 	    var node = id[0] || id;
 	    if( node.parentNode ) return (function() {
 	      while( node ) {
-	        if( node.xrouter ) return node.xrouter;
+	        if( node.xrouter ) return node;
 	        node = node.parentNode;
 	      }
 	    })();
@@ -3742,7 +3750,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            });
 	            
 	            if( app.id ) target.setAttribute('data-xrouter-id', app.id + '');
+	            
 	            target.xrouter = app;
+	            target.xrouter_rendered_base = request.parentURL;
 	            
 	            done.apply(this, arguments);
 	            if( willbeend ) response.end();
@@ -3851,6 +3861,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 23 */
 /***/ function(module, exports, __webpack_require__) {
 
+	var URL = __webpack_require__(4);
 	var meta = __webpack_require__(14);
 	var domready = __webpack_require__(17);
 	var apps = __webpack_require__(1);
@@ -3864,7 +3875,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	function isExternal(href) {
 	  var p = href.indexOf(':'), s = href.indexOf('/');
 	  return (~p && p < s) || href.indexOf('//') === 0 || href.toLowerCase().indexOf('javascript:') === 0;
-	};
+	}
+	
+	function resolveURL(dir, url) {
+	  if( !url ) return '/';
+	  if( url.trim()[0] === '/' ) return url;
+	  if( !dir ) dir = '/';
+	  if( !dir.endsWith('/') ) dir += '/';
+	  
+	  return URL.resolve(dir, url);
+	}
 	
 	function routify(a) {
 	  if( !a.__xrouter_scan__ ) {
@@ -3883,7 +3903,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( !href || isExternal(href) ) return;
 	      if( !ieversion || ieversion > 8 ) e.preventDefault();
 	      
-	      var app = name ? apps.get(name, a) : apps.get(a);
+	      var scopenode = name ? apps.find(name, a) : apps.find(a);
+	      var app = scopenode && scopenode.xrouter;
+	      var renderedbase = scopenode && scopenode.xrouter_rendered_base;
+	      
+	      if( renderedbase ) {
+	        href = resolveURL(renderedbase, href);
+	      }
 	      
 	      if( !app && name ) {
 	        console.error('[x-router] not found: ' + name);
