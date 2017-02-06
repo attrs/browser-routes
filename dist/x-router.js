@@ -94,7 +94,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( typeof id == 'string' ) {
 	      var selector = '[data-xrouter-id="' + id + '"]';
 	      var matched;
-	        
+	      
 	      if( axis && axis.nodeType === 1 ) {
 	        if( axis.closest ) matched = axis.closest(selector);
 	        else matched = closest(axis, selector);
@@ -174,6 +174,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	var globalscope = global.xrouter_globalscope = global.xrouter_globalscope || {};
 	
 	function Application(id) {
+	  if( arguments.length && typeof id !== 'string' ) {
+	    id = id[0] || id;
+	    if( !id || !id.parentNode ) return console.warn('[x-router] illegal argument: xrouter(node)');
+	    return (function() {
+	      while( id ) {
+	        if( id.xrouter ) return id.xrouter;
+	        id = id.parentNode;
+	      }
+	    })();
+	  }
+	  
 	  var router = Router(id),
 	    debug = meta('debug') === 'true' ? true : false,
 	    config = {},
@@ -3735,6 +3746,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	        request: request,
 	        response: response
 	      }) ) {
+	        target.xrouter = app;
+	        target.xrouter_rendered_base = request.parentURL;
+	        
+	        if( app.id ) target.setAttribute('data-xrouter-scope', app.id + '');
+	        else target.setAttribute('data-xrouter-scope', '');
+	        
 	        setTimeout(function() {
 	          engine.call(app, o, function(err) {
 	            if( err ) return done(err);
@@ -3748,11 +3765,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	              request: request,
 	              response: response
 	            });
-	            
-	            if( app.id ) target.setAttribute('data-xrouter-id', app.id + '');
-	            
-	            target.xrouter = app;
-	            target.xrouter_rendered_base = request.parentURL;
 	            
 	            done.apply(this, arguments);
 	            if( willbeend ) response.end();
