@@ -66,6 +66,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	xrouter.initiator.add(__webpack_require__(20));
 	xrouter.initiator.add(__webpack_require__(22));
 	
+	xrouter.refresh = function() {
+	  return xrouter.connector.refresh.apply(xrouter.connector, arguments);
+	};
+	
 	xrouter.href = function() {
 	  return xrouter.connector.href.apply(xrouter.connector, arguments);
 	};
@@ -3448,6 +3452,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var args = arguments;
 	    apps.forEach(function(app) {
 	      app.href.apply(app, args);
+	    });
+	    
+	    return this;
+	  },
+	  refresh: function(statebase) {
+	    var args = arguments;
+	    apps.forEach(function(app) {
+	      app.refresh.apply(app, args);
 	    });
 	    
 	    return this;
