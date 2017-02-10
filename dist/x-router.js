@@ -66,6 +66,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	xrouter.initiator.add(__webpack_require__(20));
 	xrouter.initiator.add(__webpack_require__(22));
 	
+	xrouter.refresh = function() {
+	  return xrouter.connector.refresh.apply(xrouter.connector, arguments);
+	};
+	
 	xrouter.href = function() {
 	  return xrouter.connector.href.apply(xrouter.connector, arguments);
 	};
@@ -248,6 +252,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  router.on('writestate', function(e) {
+	    if( debug ) console.debug('[x-router] writestate', e.detail.href);
 	    if( e.detail.sub ) return;
 	    router.fire('subapp.writestate', e.detail, 'up', false);
 	  });
@@ -453,7 +458,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  });
 	  
 	  router.on('replace', function(e) {
-	    if( debug ) console.debug('[x-router] route replaced', e.detail);
+	    if( debug ) console.debug('[x-router] replace', e.detail.previous, '->', e.detail);
 	    if( e.detail.request.app !== router ) return;
 	    
 	    var request = e.detail.request;
@@ -3430,56 +3435,98 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
+	var tinyevent = __webpack_require__(13);
 	var meta = __webpack_require__(14);
 	var debug = meta('debug') === 'true' ? true : false;
 	var defmode = meta('mode');
 	
 	var apps = [];
 	var instances = [];
+	var chref;
 	
-	module.exports = {
-	  connectors: {
-	    pushstate: __webpack_require__(16),
-	    hashbang: __webpack_require__(18)('!'),
-	    hash: __webpack_require__(18)(),
-	    auto: __webpack_require__(19)
-	  },
-	  href: function(href, body, options) {
-	    var args = arguments;
-	    apps.forEach(function(app) {
-	      app.href.apply(app, args);
-	    });
-	    
-	    return this;
-	  },
-	  instances: function() {
-	    return apps.slice();
-	  },
-	  connect: function(app, options) {
-	    if( !app ) return console.error('missing argument:app');
-	    if( ~apps.indexOf(app) ) return console.error('already listening', app.id);
-	    
-	    options = options || {};
-	    var mode = options.mode || defmode || 'auto';
-	    
-	    if( debug ) console.debug('[x-router] mode:', mode);
-	    var Connector = this.connectors[mode];
-	    if( !Connector ) {
-	      console.warn('[x-router] unsupported mode: ', mode);
-	      Connector = this.connectors['auto'];
-	    }
-	    
-	    var connector = Connector(app);
-	    apps.push(app);
-	    instances.push(connector);
-	    return connector;
-	  },
-	  disconnect: function(app) {
-	    var pos = apps.indexOf(app);
-	    if( ~pos ) apps.splice(pos, 1);
-	    if( ~pos ) instances.splice(pos, 1);
-	    return this;
+	var Connector = module.exports = {};
+	var dispatcher = tinyevent(Connector);
+	
+	Connector.types = {
+	  pushstate: __webpack_require__(16),
+	  hashbang: __webpack_require__(18)('!'),
+	  hash: __webpack_require__(18)(),
+	  auto: __webpack_require__(19)
+	};
+	
+	Connector.href = function(href, body, options) {
+	  if( !arguments.length ) return chref;
+	  
+	  var args = arguments;
+	  apps.forEach(function(app) {
+	    app.href.apply(app, args);
+	  });
+	  
+	  return this;
+	};
+	
+	Connector.refresh = function(statebase) {
+	  var args = arguments;
+	  apps.forEach(function(app) {
+	    app.refresh.apply(app, args);
+	  });
+	  
+	  return this;
+	};
+	
+	Connector.instances = function() {
+	  return apps.slice();
+	};
+	
+	Connector.connect = function(app, options) {
+	  if( !app ) return console.error('missing argument:app');
+	  if( ~apps.indexOf(app) ) return console.error('already listening', app.id);
+	  
+	  options = options || {};
+	  var mode = options.mode || defmode || 'auto';
+	  
+	  if( debug ) console.debug('[x-router] mode:', mode);
+	  var ConnectorType = this.types[mode];
+	  if( !ConnectorType ) {
+	    console.warn('[x-router] unsupported mode: ', mode);
+	    ConnectorType = this.types['auto'];
 	  }
+	  
+	  var connector = ConnectorType(app, Connector);
+	  apps.push(app);
+	  instances.push(connector);
+	  return connector;
+	};
+	
+	Connector.disconnect = function(app) {
+	  var pos = apps.indexOf(app);
+	  if( ~pos ) {
+	    instances[pos].disconnect();
+	    instances.splice(pos, 1);
+	  }
+	  if( ~pos ) apps.splice(pos, 1);
+	  return this;
+	};
+	
+	Connector.on = function(type, fn) {
+	  dispatcher.on(type, fn);
+	  return this;
+	};
+	
+	Connector.once = function(type, fn) {
+	  dispatcher.once(type, fn);
+	  return this;
+	};
+	
+	Connector.off = function(type, fn) {
+	  dispatcher.off(type, fn);
+	  return this;
+	};
+	
+	Connector.fire = function(type, detail) {
+	  if( type === 'writestate' ) chref = detail.href;
+	  dispatcher.fire(type, detail);
+	  return this;
 	};
 
 
@@ -3500,7 +3547,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return URL.parse(location.href).path;
 	}
 	
-	module.exports = function(app) {
+	module.exports = function(app, ctx) {
 	  if( typeof history !== 'object' && !(history && history.pushState) ) return console.error('[x-router] browser does not support \'history.pushState\'');
 	  
 	  var staterefs = {}, laststateid, empty = {};
@@ -3516,8 +3563,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  var pathbar_writestate = function(e) {
+	    ctx && ctx.fire('writestate', e.detail);
 	    if( e.detail.pop ) return;
-	  
+	    
 	    if( e.detail.replace ) {
 	      //delete staterefs[laststateid];
 	      var stateid = laststateid = genstateseq(app);
@@ -3544,7 +3592,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  });
 	  
 	  return {
-	    disconnect: function(app) {
+	    disconnect: function() {
 	      document.removeEventListener('popstate', pathbar_popstate);
 	      app.off('writestate', pathbar_writestate);
 	    }
@@ -3586,17 +3634,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	  prefix = '#' + (prefix || '');
 	  var n = prefix.length;
 	  
-	  return function(app) {
+	  return function(app, ctx) {
 	    var lasthref;
 	    var hashchangelistener = function() {
 	      var href = chref(n);
 	      if( location.hash.startsWith(prefix + '/') && lasthref !== href ) app.href(href);
 	    };
-	  
+	    
 	    if( window.addEventListener ) window.addEventListener('hashchange', hashchangelistener);
 	    else window.attachEvent('hashchange', hashchangelistener);
-	  
+	    
 	    var writestatelistener = function(e) {
+	      ctx && ctx.fire('writestate', e.detail);
 	      if( e.detail.pop ) return;
 	      
 	      var href = prefix + e.detail.href;
@@ -3609,16 +3658,16 @@ return /******/ (function(modules) { // webpackBootstrap
 	        location.assign(href);
 	      }
 	    };
-	  
+	    
 	    app.on('writestate', writestatelistener);
-	  
+	    
 	    domready(function() {
 	      if( location.hash.startsWith(prefix + '/') ) app.href(chref(n));
 	      else app.href('/');
 	    });
-	  
+	    
 	    return {
-	      disconnect: function(app) {
+	      disconnect: function() {
 	        if( window.addEventListener ) window.removeEventListener('hashchange', hashchangelistener);
 	        else window.detachEvent('hashchange', hashchangelistener);
 	        app.off('writestate', writestatelistener);
@@ -3631,11 +3680,11 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = function(app) {
+	module.exports = function(app, ctx) {
 	  if( typeof history == 'object' && history && history.pushState )
-	    return __webpack_require__(16)(app);
+	    return __webpack_require__(16)(app, ctx);
 	  
-	  return __webpack_require__(18)('!')(app);
+	  return __webpack_require__(18)('!')(app, ctx);
 	};
 
 /***/ },
