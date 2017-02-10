@@ -2411,20 +2411,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	var RoutePattern = __webpack_require__(12);
 	var Events = __webpack_require__(13);
 	
-	
-	if( !String.prototype.startsWith ) {
-	  String.prototype.startsWith = function(searchString, position){
-	    position = position || 0;
-	    return this.substr(position, searchString.length) === searchString;
-	  };
-	}
-	
-	if( !String.prototype.endsWith ) {
-	  String.prototype.endsWith = function(suffix) {
-	    return this.indexOf(suffix, this.length - suffix.length) !== -1;
-	  };
-	}
-	
 	if( !Array.prototype.forEach ) {
 	  Array.prototype.forEach = function(callback){
 	    for (var i = 0; i < this.length; i++){
@@ -2442,6 +2428,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	}
 	
+	function endsWith(str, suffix) {
+	  return str.indexOf(suffix, str.length - suffix.length) !== -1;
+	}
 	
 	function patternize(source, ignoresubdir) {
 	  var pettern = RoutePattern.fromString(source);
@@ -2469,8 +2458,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	function dividepath(axis, full) {
 	  if( axis[0] === '/' ) axis = axis.substring(1);
 	  if( full[0] === '/' ) full = full.substring(1);
-	  if( axis.endsWith('/') ) axis = axis.substring(0, axis.length - 1);
-	  if( full.endsWith('/') ) full = full.substring(0, full.length - 1);
+	  if( endsWith(axis, '/') ) axis = axis.substring(0, axis.length - 1);
+	  if( endsWith(full, '/') ) full = full.substring(0, full.length - 1);
 	  if( !axis ) return {
 	    sub: '/' + full,
 	    parent: ''
@@ -2529,6 +2518,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var oParams = req.params = req.params || {};
 	    var finished = false;
 	    
+	    req._routes = req._routes || [];
+	    req._routes.splice(0, 0, body);
+	    
 	    var next = function(err) {
 	      if( finished ) return console.error('next function twice called.', id, err);
 	      finished = true;
@@ -2546,7 +2538,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          request: req,
 	          response: res,
 	          error: err
-	        });
+	        }, req._routes);
 	        
 	        return onext && onext(err);
 	      }
@@ -2610,7 +2602,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	          url: req.url,
 	          request: req,
 	          response: res
-	        }, 'up');
+	        }, req._routes);
 	        
 	        return forward();
 	      }
@@ -2641,7 +2633,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        url: req.url,
 	        request: req,
 	        response: res
-	      }, 'up');
+	      }, req._routes);
 	      
 	      route.fn.apply(body, [req, res, forward]);
 	    };
@@ -2673,13 +2665,44 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( fn.__router__ || fn.Routable ) {
 	      fn.connect && fn.connect(body, 'up');
 	      events.connect(fn, 'down');
+	      
+	      fn.fire && fn.fire('add', {
+	        parent: body
+	      });
 	    }
 	    
 	    routes.push(route);
-	    events.fire('add', {
-	      router: body,
-	      config: route
+	    events.fire('addchild', {
+	      child: route
 	    });
+	    
+	    events.fire('subtree', {
+	      router: body,
+	      added: route
+	    }, 'up');
+	  };
+	  
+	  var remove = function(route) {
+	    var fn = route.fn;
+	    
+	    if( fn ) {
+	      fn.disconnect && fn.disconnect(body);
+	      events.disconnect(route.fn);
+	      
+	      fn.fire && fn.fire('remove', {
+	        parent: body
+	      });
+	    }
+	    
+	    routes.splice(routes.indexOf(route), 1);
+	    events.fire('removechild', {
+	      child: route
+	    });
+	    
+	    events.fire('subtree', {
+	      router: body,
+	      removed: route
+	    }, 'up');
 	  };
 	  
 	  body.use = function(path, fn) {
@@ -2738,23 +2761,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	    });
 	    
 	    dropfns.forEach(function(route) {
-	      if( route.fn ) {
-	        route.fn.disconnect && route.fn.disconnect(body);
-	        events.connect(route.fn, 'down');
-	      }
-	      
-	      routes.splice(routes.indexOf(route), 1);
-	      
-	      events.fire('remove', {
-	        router: body,
-	        config: route
-	      });
+	      remove(route);
 	    });
 	    return this;
 	  };
 	  
 	  body.clear = function() {
+	    routes.forEach(function(route) {
+	      remove(route);
+	    });
+	    
 	    routes = [];
+	    events.fire('clear', {}, 'up');
 	    return this;
 	  };
 	  
@@ -3237,6 +3255,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	}
 	
+	if( !Array.isArray ) {
+	  Array.isArray = function(arg) {
+	    return Object.prototype.toString.call(arg) === '[object Array]';
+	  };
+	}
+	
 	function EventObject(type, detail, target, cancelable) {
 	  this.type = type;
 	  this.detail = detail || {};
@@ -3256,6 +3280,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  },
 	  stopImmediatePropagation: function() {
 	    this.stoppedImmediate = true;
+	    this.stopped = true;
 	  }
 	};
 	
@@ -3265,7 +3290,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	
 	module.exports = function(scope) {
-	  var listeners = {}, paused = false, related = [];
+	  var listeners = {}, paused = false;
 	  
 	  var on = function(type, fn) {
 	    if( !type || typeof type !== 'string' ) return console.error('type must be a string');
@@ -3338,13 +3363,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    event.currentTarget = scope;
 	    
-	    var stopped = false, stopRelated = false, prevented = false;
 	    var action = function(listener) {
-	      if( stopped ) return;
+	      if( event.stoppedImmediate ) return;
 	      listener.call(scope, event);
-	      if( event.defaultPrevented === true ) prevented = true;
-	      if( event.stopped === true ) stopRelated = true;
-	      if( event.stoppedImmediate === true ) stopped = true, stopRelated = true;
 	    };
 	    
 	    if( !direction || includeself !== false ) {
@@ -3352,14 +3373,29 @@ return /******/ (function(modules) { // webpackBootstrap
 	      (listeners[event.type] || []).slice().reverse().forEach(action);
 	    }
 	    
-	    if( direction && !stopRelated ) {
-	      prevented = !related.every(function(node) {
-	        if( !node.target.fire || (direction !== 'both' && node.direction !== direction) ) return true;
-	        return node.target.fire(type, detail, direction);
-	      });
+	    if( direction && !event.stopped ) {
+	      if( direction === 'up' ) {
+	        upstream.every(function(target) {
+	          target.fire && target.fire(event, null, direction);
+	          return !event.stopped;
+	        });
+	      } else if( direction === 'down' ) {
+	        downstream.every(function(target) {
+	          target.fire && target.fire(event, null, direction);
+	          return !event.stopped;
+	        });
+	      } else if(Array.isArray(direction)) {
+	        direction.every(function(target) {
+	          //console.log('fire', event.type, target.id);
+	          target.fire && target.fire(event);
+	          return !event.stopped;
+	        });
+	      } else {
+	        console.warn('invalid type of direction', direction);
+	      }
 	    }
 	    
-	    return !prevented;
+	    return !event.defaultPrevented;
 	  };
 	  
 	  var destroy = function() {
@@ -3377,29 +3413,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return this;
 	  };
 	  
+	  var upstream = [];
+	  var downstream = [];
+	  
 	  var connect = function(target, direction) {
 	    if( !target ) return console.warn('illegal argument: target cannot be null', target);
-	    if( !~['up', 'down'].indexOf(direction) ) return console.warn('illegal argument: direction must be "up" or "down" but ', direction);
+	    if( typeof target.fire !== 'function' ) return console.warn('illegal argument: target must have fire method', target);
 	    
-	    related.push({
-	      target: target,
-	      direction: direction
-	    });
+	    if( direction === 'up' && ~upstream.indexOf(target) ) return;
+	    else if( direction === 'down' && ~downstream.indexOf(target) ) return;
+	    else if( direction === 'up' ) upstream.push(target);
+	    else if( direction === 'down' ) downstream.push(target);
+	    else return console.warn('illegal argument: direction must be "up" or "down" but ', direction);
 	    
 	    return this;
 	  };
 	  
-	  var disconnect = function(target) {
-	    if( !node ) return this;
+	  var disconnect = function(target, direction) {
+	    if( !target ) return this;
 	    
-	    var fordelete = [];
-	    related.forEach(function(node) {
-	      if( node.target === target ) fordelete.push(node);
-	    });
-	    
-	    fordelete.forEach(function(node) {
-	      related.splice(related.indexOf(node), 1);
-	    });
+	    if( (!direction || direction === 'up') && ~upstream.indexOf(target) ) upstream.splice(upstream.indexOf(fn), 1);
+	    if( (!direction || direction === 'down') && ~downstream.indexOf(target) ) downstream.splice(downstream.indexOf(fn), 1);
 	    
 	    return this;
 	  };
