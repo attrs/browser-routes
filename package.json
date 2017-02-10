@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "tinyajax": "^0.1.0",
+    "tinyevent": "^0.1.0",
     "tinyrouter": "^0.2.1"
   },
   "files": [
