@@ -62,6 +62,13 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
+	if (!String.prototype.startsWith) {
+	  String.prototype.startsWith = function(searchString, position){
+	    position = position || 0;
+	    return this.substr(position, searchString.length) === searchString;
+	  };
+	}
+	
 	var xrouter = module.exports = __webpack_require__(1);
 	xrouter.initiator.add(__webpack_require__(20));
 	xrouter.initiator.add(__webpack_require__(22));
