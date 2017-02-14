@@ -3768,9 +3768,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	
 	module.exports = function() {
-	  var engines = {
-	    default: DefaultRenderer
-	  };
+	  var engines = {};
+	  
+	  engines['default'] = DefaultRenderer;
 	  
 	  this.engine = function(name, fn) {
 	    if( arguments.length === 1 ) return engines[name];
