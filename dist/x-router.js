@@ -69,6 +69,18 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	}
 	
+	if (!String.prototype.endsWith) {
+	  String.prototype.endsWith = function(searchString, position) {
+	    var subjectString = this.toString();
+	    if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
+	      position = subjectString.length;
+	    }
+	    position -= searchString.length;
+	    var lastIndex = subjectString.indexOf(searchString, position);
+	    return lastIndex !== -1 && lastIndex === position;
+	  };
+	}
+	
 	var xrouter = module.exports = __webpack_require__(1);
 	xrouter.initiator.add(__webpack_require__(20));
 	xrouter.initiator.add(__webpack_require__(22));
