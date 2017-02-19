@@ -162,6 +162,15 @@ return /******/ (function(modules) { // webpackBootstrap
 	  return URL.resolve(curl, url);
 	}
 	
+	function resolveURL(dir, url) {
+	  if( !url ) return '/';
+	  if( url.trim()[0] === '/' ) return url;
+	  if( !dir ) dir = '/';
+	  if( !dir.endsWith('/') ) dir += '/';
+	  
+	  return URL.resolve(dir, url);
+	}
+	
 	/*
 	console.debug('http://localhost/a/b/c?a=b', abs(null, 'http://localhost:9000/a/b/c?a=b'));
 	console.debug('/a/b/c?a=b', abs(null, '/a/b/c?a=b'));
@@ -202,7 +211,30 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( !id || !id.parentNode ) return console.warn('[x-router] illegal argument: xrouter(node)');
 	    return (function() {
 	      while( id ) {
-	        if( id.xrouter ) return id.xrouter;
+	        if( id.xrouter ) {
+	          var app = id.xrouter;
+	          var base = id.xrouter_rendered_base;
+	          
+	          return {
+	            app: function() {
+	              return app;
+	            },
+	            base: function() {
+	              return base;
+	            },
+	            element: function() {
+	              return id;
+	            },
+	            href: function() {
+	              if( !arguments.length ) return app.href();
+	              var args = [].slice.call(arguments);
+	              args[0] = resolveURL(base, args[0]);
+	              //console.log('href', arguments[0], args[0]);
+	              return app.href.apply(app, args);
+	            }
+	          };
+	        }
+	        
 	        id = id.parentNode;
 	      }
 	    })();
@@ -367,12 +399,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  
 	  router.href = function(requesthref, body, options) {
 	    if( !arguments.length ) return currenthref;
+	    if( !requesthref ) return console.error('[x-router] missing \'href\'');
+	    if( typeof requesthref === 'number' ) url = url + '';
+	    if( typeof requesthref !== 'string' ) return console.error('[x-router] argument \'href\' must be a string');
 	    if( typeof body === 'boolean' ) options = {writestate:body}, body = null;
 	    if( typeof options === 'boolean' ) options = {writestate:options};
 	    if( !options || typeof options !== 'object' ) options = {};
-	    if( !requesthref ) return console.error('[x-router] missing url');
-	    if( typeof requesthref === 'number' ) url = url + '';
-	    if( typeof requesthref !== 'string' ) return console.error('[x-router] illegal type of url');
 	    
 	    var href = abs(router.state(), requesthref);
 	    var body = body;
@@ -3854,6 +3886,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if( app.id ) target.setAttribute('data-xrouter-scope', app.id + '');
 	        else target.setAttribute('data-xrouter-scope', '');
 	        
+	        target.setAttribute('data-xrouter-base', target.xrouter_rendered_base);
+	        
 	        setTimeout(function() {
 	          engine.call(app, o, function(err) {
 	            if( err ) return done(err);
@@ -3978,7 +4012,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	var URL = __webpack_require__(4);
 	var meta = __webpack_require__(14);
 	var domready = __webpack_require__(17);
-	var apps = __webpack_require__(1);
+	var xrouter = __webpack_require__(1);
 	var connector = __webpack_require__(15);
 	var ieversion = __webpack_require__(24);
 	
@@ -3989,15 +4023,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	function isExternal(href) {
 	  var p = href.indexOf(':'), s = href.indexOf('/');
 	  return (~p && p < s) || href.indexOf('//') === 0 || href.toLowerCase().indexOf('javascript:') === 0;
-	}
-	
-	function resolveURL(dir, url) {
-	  if( !url ) return '/';
-	  if( url.trim()[0] === '/' ) return url;
-	  if( !dir ) dir = '/';
-	  if( !dir.endsWith('/') ) dir += '/';
-	  
-	  return URL.resolve(dir, url);
 	}
 	
 	function routify(a) {
@@ -4017,18 +4042,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	      if( !href || isExternal(href) ) return;
 	      if( !ieversion || ieversion > 8 ) e.preventDefault();
 	      
-	      var scopenode = name ? apps.find(name, a) : apps.find(a);
-	      var app = scopenode && scopenode.xrouter;
-	      var renderedbase = scopenode && scopenode.xrouter_rendered_base;
+	      var scope = xrouter(a);
 	      
-	      if( renderedbase ) {
-	        href = resolveURL(renderedbase, href);
-	      }
-	      
-	      if( !app && name ) {
-	        console.error('[x-router] not found: ' + name);
-	      } else if( href ) {
-	        (app || connector).href(href, {
+	      if( !scope && name ) {
+	        console.error('[x-router] not found scope: ' + name);
+	      } else {
+	        (scope || connector).href(href, {
 	          srcElement: a
 	        }, {
 	          writestate: ghost ? false : true,
