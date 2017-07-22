@@ -440,7 +440,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if( !options || typeof options !== 'object' ) options = {};
 	    
 	    var href = abs(router.state(), requesthref);
-	    var body = body;
 	    var force = options.force === true ? true : false;
 	    var writestate = options.writestate === false ? false : true;
 	    var replace = options.replace === true ? true : false;
@@ -465,13 +464,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    
 	    var prepared = router.prepare(href);
-	    prepared.requesthref = requesthref;
-	    prepared.referer = currenthref;
-	    prepared.options = options;
-	    prepared.body = body;
-	    
 	    var request = prepared.request;
 	    var response = prepared.response;
+	    
+	    request.requesthref = requesthref;
+	    request.referer = currenthref;
+	    request.options = options;
+	    request.body = body;
 	    
 	    if( router.fire('beforerequest', {
 	      href: href,
@@ -5212,7 +5211,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = function(fn) {
 	  if( document.body ) {
-	    fn();
+	    window.setTimeout(fn, 1);
 	  } else {
 	    if( document.addEventListener ) {
 	      document.addEventListener('DOMContentLoaded', function() {
