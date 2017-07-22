@@ -5211,7 +5211,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	module.exports = function(fn) {
 	  if( document.body ) {
-	    fn();
+	    window.setTimeout(fn, 1);
 	  } else {
 	    if( document.addEventListener ) {
 	      document.addEventListener('DOMContentLoaded', function() {
