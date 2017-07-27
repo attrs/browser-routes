@@ -104,10 +104,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return el;
 	  };
 	  
-	  // @deprecated
 	  xrouter.get = function(id, axis) {
-	    console.warn('[x-router] xrouter.get is deprecated, use xrouter.find instead');
-	    
 	    var node = xrouter.find(id, axis);
 	    return node && node.xrouter;
 	  };
@@ -138,7 +135,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  };
 	  
 	  xrouter.scanner = __webpack_require__(29).start();
-	  window.xrouter = xrouter;
+	  //window.xrouter = xrouter;
 	}
 
 /***/ },
