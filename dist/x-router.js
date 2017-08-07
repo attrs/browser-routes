@@ -5558,9 +5558,22 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var href = a.getAttribute('data-href') || a.getAttribute('href');
 	      var ghost = a.getAttribute('data-ghost') || a.hasAttribute('ghost');
 	      var replace = a.getAttribute('data-replace') || a.hasAttribute('replace');
+	      var isroot = a.getAttribute('data-root') || a.hasAttribute('root');
 	      
 	      if( !href || isExternal(href) ) return;
 	      if( !ieversion || ieversion > 8 ) e.preventDefault();
+	      
+	      if( name === '$root' ) isroot = true;
+	      
+	      if( isroot ) {
+	        connector.href(href, {
+	          srcElement: a
+	        }, {
+	          writestate: ghost ? false : true,
+	          replace: replace
+	        });
+	        return false;
+	      }
 	      
 	      var scope = xrouter(a);
 	      
