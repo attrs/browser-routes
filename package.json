@@ -1,30 +1,29 @@
 {
   "name": "x-router",
-  "version": "0.5.16",
+  "version": "0.5.18",
   "description": "frontend router",
   "main": "lib/index.js",
   "homepage": "https://github.com/attrs/x-router",
   "repository": "attrs/x-router",
   "author": "joje <joje.attrs@gmail.com>",
   "scripts": {
-    "2": "wpm up ./test -s -d ./test/exam2.html",
-    "prepublish": "gulp",
+    "prepublishOnly": "gulp",
     "dev": "wpm up ./test -s -d ./test/exam1.html"
   },
   "license": "MIT",
   "devDependencies": {
     "gulp": "^3.9.1",
-    "gulp-header": "^1.8.3",
+    "gulp-header": "^1.8.9",
     "gulp-rename": "^1.2.2",
-    "gulp-rimraf": "^0.2.0",
-    "gulp-uglify": "^1.5.3",
-    "gulp-util": "^3.0.7",
-    "webpack": "^1.13.1",
-    "webpack-stream": "^3.2.0"
+    "gulp-rimraf": "^0.2.1",
+    "gulp-uglify": "^3.0.0",
+    "gulp-util": "^3.0.8",
+    "webpack": "^3.8.1",
+    "webpack-stream": "^4.0.0"
   },
   "dependencies": {
     "tinyajax": "^0.1.0",
-    "tinyevent": "^0.1.1",
+    "tinyevent": "^0.1.3",
     "tinyrouter": "^0.2.4"
   },
   "files": [
