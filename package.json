@@ -24,7 +24,7 @@
   "dependencies": {
     "tinyajax": "^0.1.0",
     "tinyevent": "^0.1.3",
-    "tinyrouter": "^0.2.4"
+    "tinyrouter": "^0.2.7"
   },
   "files": [
     "package.json",
